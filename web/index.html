@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b2e25">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Peilung">
 <title>Peilung – Was liegt vor mir?</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -36,6 +42,16 @@ background:linear-gradient(#0b2e25 0%,#14513f 55%,#2a7a5e 72%,#0a221c 72%,#07171
 .readout{position:absolute;top:10px;left:0;right:0;text-align:center;pointer-events:none;z-index:3}
 .readout b{font:700 44px/1 "Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums;text-shadow:0 1px 6px #0008}
 .readout span{display:block;font:600 15px/1.2 Barlow,sans-serif;opacity:.9}
+.calTog{position:absolute;top:12px;left:10px;z-index:4;min-height:40px;padding:6px 12px;border-radius:99px;border:1px solid #ffffff60;background:#06140fc0;color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px}
+.calTog svg{width:18px;height:18px}
+.pano.calib .calTog{background:var(--sig);border-color:var(--sig)}
+.calBar{position:absolute;bottom:6px;left:6px;right:6px;z-index:4;background:#06140ff0;border:1px solid var(--sig);border-radius:12px;padding:8px;color:#fff;font-size:14px;line-height:1.35}
+.calBar p{margin:0 0 6px;font-size:13px}
+.calBar .cb{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.calBar button{min-height:40px;min-width:44px;padding:4px 10px;border-radius:8px;border:1px solid #ffffff50;background:#ffffff14;color:#fff;font-weight:600;cursor:pointer}
+.calBar button.ok{background:var(--sig);border-color:var(--sig)}
+.calBar output{color:#fff;font:700 18px/1 "Barlow Condensed",sans-serif;padding:0 6px}
+.pano.calib .mk{outline:2px dashed #ffffffa0;outline-offset:1px}
 .centerline{position:absolute;left:50%;top:70px;bottom:0;width:2px;margin-left:-1px;background:var(--sig);z-index:2;opacity:.85;pointer-events:none}
 .centerline::before{content:"";position:absolute;top:-2px;left:-6px;border:7px solid transparent;border-top-color:var(--sig)}
 #marks{position:absolute;inset:0;z-index:2}
@@ -119,6 +135,11 @@ footer a{color:inherit}
  <video id="cam" playsinline muted autoplay></video>
  <div class="readout"><b id="hdg">–</b><span id="hdgDir">Blickrichtung</span></div>
  <div class="centerline"></div>
+ <button class="calTog" id="calTog" type="button" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 1v5M12 18v5M1 12h5M18 12h5" stroke="currentColor" stroke-width="2"/></svg>Kalibrieren</button>
+ <div class="calBar" id="calBar" hidden>
+  <p id="calHelp">Rote Linie auf ein Ziel richten, das du sicher erkennst, und <b>sein Schild antippen</b> – oder mit den Pfeilen verschieben.</p>
+  <div class="cb"><button type="button" data-adj="-5">«&nbsp;5°</button><button type="button" data-adj="-1">‹&nbsp;1°</button><output id="calOut">±0°</output><button type="button" data-adj="1">1°&nbsp;›</button><button type="button" data-adj="5">5°&nbsp;»</button><button type="button" id="calReset">0</button><button type="button" class="ok" id="calDone">Fertig</button></div>
+ </div>
  <div id="marks"></div>
  <svg id="tape"></svg>
  <div class="hiddenNote" id="hiddenNote"></div>
@@ -220,8 +241,8 @@ function startCompass(){
  const add=()=>{if('ondeviceorientationabsolute' in window)addEventListener('deviceorientationabsolute',onOri,true);
   else addEventListener('deviceorientation',onOri,true)};
  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
-  DeviceOrientationEvent.requestPermission().then(r=>{if(r==='granted')add();else stat($('#cmpStat'),'Kompass verweigert','warn')})
-   .catch(()=>stat($('#cmpStat'),'Kompass nicht verfügbar','warn'));
+  DeviceOrientationEvent.requestPermission().then(r=>{add();if(r!=='granted')setTimeout(()=>{if(!compassOn)stat($('#cmpStat'),'Kompass verweigert','warn')},1500)})
+   .catch(()=>add());
  }else add();
  setTimeout(()=>{if(!compassOn)stat($('#cmpStat'),'Kein Kompass – wischen zum Drehen','warn')},3000);
 }
@@ -484,12 +505,26 @@ function openSheet(i){
  <div class="row"><button class="btn" id="calBtn" type="button">Ich schaue genau darauf – Kompass kalibrieren</button><button class="btn ghost" id="closeBtn" type="button">Schließen</button></div>`;
  sheet.hidden=false;$('#closeBtn').focus();
 }
+let calib=false;
+function setCalib(on){calib=on;pano.classList.toggle('calib',on);$('#calBar').hidden=!on;$('#calTog').setAttribute('aria-pressed',on);showOff()}
+function showOff(){$('#calOut').textContent=hasCompass()?(S.off>0?'+':S.off<0?'':'±')+Math.round(S.off)+'°':Math.round(manualH)+'°'}
+function adjust(n){
+ if(hasCompass()){S.off=Math.max(-180,Math.min(180,S.off+n));save();drawCalib()}else manualH=norm(manualH+n);
+ dirty=true;showOff();
+}
+function calibrateTo(it){
+ if(!hasCompass()||sm==null){manualH=it.b;toast('Blickrichtung auf '+it.name+' gesetzt')}
+ else{S.off=Math.round(adiff(it.b,sm));save();drawCalib();toast(`Kalibriert auf ${it.name} (Korrektur ${S.off>0?'+':''}${S.off}°)`)}
+ dirty=true;showOff();
+}
+$('#calTog').addEventListener('click',()=>setCalib(!calib));
+$('#calDone').addEventListener('click',()=>setCalib(false));
+$('#calReset').addEventListener('click',()=>{S.off=0;save();drawCalib();dirty=true;showOff()});
+$('#calBar').addEventListener('click',e=>{const b=e.target.closest('[data-adj]');if(b)adjust(+b.dataset.adj)});
 sheet.addEventListener('click',e=>{
  if(e.target===sheet||e.target.id==='closeBtn'){sheet.hidden=true;return}
  if(e.target.id==='calBtn'&&cur){
-  if(!hasCompass()||sm==null){manualH=cur.b;toast('Blickrichtung auf '+cur.name+' gesetzt');}
-  else{S.off=Math.round(adiff(cur.b,sm));save();drawCalib();toast(`Kalibriert auf ${cur.name} (Korrektur ${S.off>0?'+':''}${S.off}°)`);}
-  dirty=true;sheet.hidden=true;
+  calibrateTo(cur);sheet.hidden=true;
  }
 });
 addEventListener('keydown',e=>{
@@ -501,12 +536,14 @@ addEventListener('keydown',e=>{
 document.addEventListener('click',e=>{
  if(e.target.closest('#retry')){lastLoad=null;loadData();return}
  if(e.target.closest('#resetOff')){S.off=0;save();drawCalib();dirty=true;return}
- const b=e.target.closest('[data-i]');if(b&&!dragMoved)openSheet(+b.dataset.i);
+ const b=e.target.closest('[data-i]');if(!b||dragMoved)return;
+ if(calib&&b.classList.contains('mk')){calibrateTo(items[+b.dataset.i]);return}
+ openSheet(+b.dataset.i);
 });
 
 /* Wischen zum Drehen, wenn kein Kompass */
 let dragX=null,dragMoved=false;
-pano.addEventListener('pointerdown',e=>{dragX=e.clientX;dragMoved=false});
+pano.addEventListener('pointerdown',e=>{if(e.target.closest('.calBar,.calTog'))return;dragX=e.clientX;dragMoved=false});
 pano.addEventListener('pointermove',e=>{
  if(dragX==null||hasCompass())return;const dx=e.clientX-dragX;
  if(Math.abs(dx)>3){dragMoved=true;manualH=norm(manualH-dx/pano.clientWidth*S.fov);dragX=e.clientX;dirty=true}
