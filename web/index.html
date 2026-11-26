@@ -7,6 +7,8 @@
 <title>Peilung – Was liegt vor mir?</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 /* VOICE: ruhiges Feldinstrument, klar ablesbar draußen
    IDEA: Peilkompass + Panorama-Tafel an einem Aussichtspunkt
@@ -73,8 +75,12 @@ h2{font:700 24px/1.1 "Barlow Condensed",sans-serif;margin:18px 0 2px}
 .list .r small{color:var(--muted);font-size:12px}
 .arrow{width:20px;height:20px;vertical-align:-4px;color:var(--sig);transition:transform .2s}
 .empty{color:var(--muted);padding:12px 0;font-size:15px}
-.radarbox{max-width:360px;margin:6px auto}
-#radar{width:100%;height:auto;display:block}
+#map{height:min(60vh,380px);border-radius:12px;border:1px solid var(--line);background:#dfe6e0;z-index:0}
+.loadState{margin:0 12px;padding:10px 12px;border-radius:10px;background:var(--card);border:1px solid var(--line);font-size:15px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.loadState.err{border-color:var(--sig)}
+.loadState:empty{display:none}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--green);animation:sp 1s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(1turn)}}
 footer{padding:20px 12px 28px;color:var(--muted);font-size:13px;max-width:1240px;margin:auto}
 footer a{color:inherit}
 .sheet{position:fixed;inset:0;z-index:20;background:#0007;display:flex;align-items:flex-end;justify-content:center}
@@ -134,12 +140,13 @@ footer a{color:inherit}
  <button class="sbtn" id="reload" type="button">Neu laden</button>
 </div>
 <div class="chips" id="chips"></div>
+<div class="loadState" id="loadState" role="status"></div>
 
 <main class="grid">
+ <section><h2>Karte</h2><p class="sub" id="mapNote">Dein Standort, die Ziele und dein Sichtkegel</p><div id="map"></div>
+  <p class="sub" id="calib"></p></section>
  <section><h2>In Blickrichtung</h2><p class="sub" id="viewSub">Noch keine Daten</p><ul class="list" id="viewList"></ul></section>
  <section><h2>Nächste Orte</h2><p class="sub">Entfernung Luftlinie, Pfeil zeigt die Richtung</p><ul class="list" id="placeList"></ul></section>
- <section><h2>Umgebung</h2><p class="sub" id="radarSub">Draufsicht, Blickrichtung oben</p><div class="radarbox"><svg id="radar" viewBox="-112 -112 224 224"></svg></div>
-  <p class="sub" id="calib"></p></section>
 </main>
 
 <footer>Kartendaten © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap-Mitwirkende</a> (ODbL), abgefragt über die Overpass API. Handy-Kompasse zeigen magnetisch Nord und werden durch Metall, Autos oder Hüllen mit Magnet gestört – tippe ein bekanntes Ziel an und wähle „Kompass hierauf kalibrieren“.</footer>
@@ -235,28 +242,34 @@ function setPos(p){
  pos=p;
  stat($('#gpsStat'),p.acc!=null?'GPS ±'+Math.round(p.acc)+' m':'Demo-Standort','ok');
  for(const it of items){it.d=dist(pos,it);it.b=bearing(pos,it)}
- dirty=true;
+ dirty=true;mapPos();
  const need=!lastLoad||lastLoad.rad!==S.rad||dist(lastLoad,pos)>Math.max(1500,S.rad*250);
  if(need)loadData();
 }
 
 /* ---------- Daten (OpenStreetMap via Overpass) ---------- */
+const farR=()=>Math.min(S.rad*2500,40000);
 function query(lat,lon){
- const r=S.rad*1000,r2=Math.min(Math.round(r*2.5),60000),a=(x)=>`(around:${x},${lat.toFixed(5)},${lon.toFixed(5)})`;
- return `[out:json][timeout:50];(
-nwr["amenity"="place_of_worship"]${a(r)};
-nwr["building"~"^(church|cathedral|chapel)$"]${a(r)};
-nwr["historic"~"^(castle|fort|tower|city_gate)$"]${a(r)};
-nwr["man_made"~"^(mast|tower|water_tower|chimney)$"]${a(r)};
-nwr["man_made"="tower"]["tower:type"="communication"]${a(r2)};
-nwr["historic"="castle"]${a(r2)};
-nwr["man_made"="lighthouse"]${a(r2)};
-nwr["power"="generator"]["generator:source"="wind"]${a(r)};
-node["natural"~"^(peak|volcano)$"]["name"]${a(r2)};
-node["place"~"^(city|town)$"]${a(r2)};
-node["place"="village"]${a(r)};
-);out center tags;`;
+ const r=S.rad*1000,r2=farR();
+ const bb=x=>{const dl=x/111320,dn=x/(111320*Math.cos(lat*D));
+  return `(${(lat-dl).toFixed(4)},${(lon-dn).toFixed(4)},${(lat+dl).toFixed(4)},${(lon+dn).toFixed(4)})`};
+ const a=bb(r),b=bb(r2);
+ return `[out:json][timeout:30];(
+nwr["amenity"="place_of_worship"]${a};
+nwr["historic"~"^(castle|fort|tower|city_gate)$"]${a};
+nwr["historic"="castle"]${b};
+nwr["man_made"~"^(mast|tower|water_tower|chimney)$"]${a};
+nwr["man_made"="tower"]["tower:type"="communication"]${b};
+nwr["man_made"="lighthouse"]${b};
+nwr["power"="generator"]["generator:source"="wind"]${a};
+node["natural"~"^(peak|volcano)$"]["name"]${b};
+node["place"~"^(city|town)$"]${b};
+node["place"="village"]${a};
+);out center tags qt;`;
 }
+const loadEl=$('#loadState');let loadTimer;
+function setLoad(html,cls){clearTimeout(loadTimer);loadEl.className='loadState'+(cls?' '+cls:'');loadEl.innerHTML=html;
+ if(cls==='done')loadTimer=setTimeout(()=>{loadEl.innerHTML=''},4000)}
 function classify(t){
  const h=parseFloat(t.height)||0,tt=t['tower:type'];
  if(t.place)return /^(city|town|village)$/.test(t.place)?'ort':null;
@@ -320,25 +333,36 @@ async function loadData(){
   if(c&&c.rad===S.rad&&Date.now()-c.time<7*864e5&&dist(c,pos)<Math.max(1500,S.rad*250)){
    useData(c.items,c);return}}catch(e){}
  loading=true;$('#viewSub').textContent='Lade Umgebung aus OpenStreetMap…';
- const q='data='+encodeURIComponent(query(pos.lat,pos.lon));let ok=false;
- for(const url of ENDPOINTS){
+ const q='data='+encodeURIComponent(query(pos.lat,pos.lon));let ok=false,err='';
+ for(let i=0;i<ENDPOINTS.length;i++){
+  const host=new URL(ENDPOINTS[i]).host;
+  setLoad(`<span class="spin"></span>Lade Ziele aus OpenStreetMap… (Server ${i+1} von ${ENDPOINTS.length})`);
   try{
-   const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),55000);
-   const r=await fetch(url,{method:'POST',body:q,headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctl.signal});
-   clearTimeout(tm);if(!r.ok)throw new Error(r.status);
-   const j=await r.json();const its=build(j.elements||[]);
+   const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),35000);
+   const r=await fetch(ENDPOINTS[i],{method:'POST',body:q,headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctl.signal});
+   clearTimeout(tm);
+   if(!r.ok)throw new Error('HTTP '+r.status+(r.status===429?' (zu viele Anfragen)':r.status===504?' (Server ausgelastet)':''));
+   const j=await r.json();
+   if(j.remark&&!(j.elements||[]).length)throw new Error(String(j.remark).slice(0,120));
+   const its=build(j.elements||[]);
    const meta={lat:pos.lat,lon:pos.lon,rad:S.rad,time:Date.now()};
    try{localStorage.setItem(key,JSON.stringify({...meta,items:its}))}catch(e){}
-   useData(its,meta);ok=true;break;
-  }catch(e){}
+   useData(its,meta);ok=true;
+   setLoad(`${its.length} Ziele im Umkreis geladen`,'done');
+   break;
+  }catch(e){err=host+': '+(e.name==='AbortError'?'Zeitüberschreitung':e.message||'Netzwerkfehler')}
  }
  loading=false;
- if(!ok){toast('Daten konnten nicht geladen werden – Internetverbindung prüfen und „Neu laden“ tippen.');$('#viewSub').textContent='Keine Daten geladen';}
+ if(!ok){
+  setLoad(`Keine Daten geladen – ${esc(err)}. <button class="sbtn" type="button" id="retry">Erneut versuchen</button>`,'err');
+  $('#viewSub').textContent='Keine Daten geladen';
+ }
 }
 function useData(its,meta){
  items=its;lastLoad={lat:meta.lat,lon:meta.lon,rad:meta.rad};
  for(const it of items){it.d=dist(pos,it);it.b=bearing(pos,it)}
- dirty=true;buildRadar();
+ const lim=farR()*1.05;items=items.filter(it=>it.d<=lim);
+ dirty=true;updateMapItems();
 }
 
 /* ---------- Darstellung ---------- */
@@ -397,28 +421,34 @@ function drawLists(h){
  $('#placeList').innerHTML=pl.length?pl.map(it=>rowHTML(it,`<b>${fmtD(it.d)}</b><small><svg class="arrow" viewBox="0 0 24 24" style="transform:rotate(${(adiff(it.b,h)).toFixed(0)}deg)"><path fill="currentColor" d="M12 2 19 20 12 16 5 20z"/></svg> ${dirName(it.b)} ${Math.round(it.b)}°</small>`)).join('')
   :'<li class="empty">Noch keine Orte geladen.</li>';
 }
-const radar=$('#radar');
-function buildRadar(){
- const R=S.rad*1000*2.5;let g='';
+let map=null,meM=null,coneL=null,poiLayer=null,coneH=null,centered=false;
+function initMap(){
+ if(!window.L){$('#mapNote').textContent='Karte konnte nicht geladen werden (keine Internetverbindung?).';return}
+ map=L.map('map',{zoomControl:true}).setView([51.2,10.4],6);
+ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap-Mitwirkende'}).addTo(map);
+ coneL=L.polygon([[0,0]],{color:'#ec4a2c',weight:1.5,fillColor:'#ec4a2c',fillOpacity:.15,interactive:false}).addTo(map);
+ poiLayer=L.layerGroup().addTo(map);
+ meM=L.circleMarker([0,0],{radius:8,color:'#fff',weight:3,fillColor:'#ec4a2c',fillOpacity:1,interactive:false});
+}
+function mapPos(){
+ if(!map||!pos)return;
+ if(!centered){meM.addTo(map);map.setView([pos.lat,pos.lon],12);centered=true}
+ meM.setLatLng([pos.lat,pos.lon]);coneH=null;
+}
+function updateMapItems(){
+ if(!map)return;poiLayer.clearLayers();
  for(const it of shown().sort((a,b)=>a.w-b.w)){
-  const r=Math.min(1,it.d/R)*100,x=Math.sin(it.b*D)*r,y=-Math.cos(it.b*D)*r,c=CATS[it.cat];
-  g+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(1.6+it.w/3).toFixed(1)}" fill="${c.cl||c.c}" stroke="var(--card)" stroke-width=".8"/>`;
+  const c=CATS[it.cat],i=items.indexOf(it);
+  L.circleMarker([it.lat,it.lon],{radius:4+it.w/2,color:'#0b2e25',weight:1.2,fillColor:c.cl||c.c,fillOpacity:.95})
+   .bindTooltip(it.name+' · '+fmtD(it.d),{direction:'top'}).on('click',()=>openSheet(i)).addTo(poiLayer);
  }
- const ring=(f,l)=>`<circle r="${f*100}" fill="none" stroke="var(--line)" stroke-width="1"/><text x="3" y="${-f*100+9}" font-size="8" fill="var(--muted)">${l}</text>`;
- radar.innerHTML=`<path id="cone" fill="#ec4a2c22" stroke="#ec4a2c" stroke-width="1"/>
- <g id="rg">${ring(1,fmtD(R))}${ring(2/3,fmtD(R*2/3))}${ring(1/3,fmtD(R/3))}${g}</g>
- <circle r="4" fill="var(--ink)"/><g id="nmark"><circle r="8" fill="var(--sig)"/><text y="3.5" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">N</text></g>`;
- $('#radarSub').textContent=`Draufsicht bis ${fmtD(R)}, Blickrichtung oben`;
- drawCone();
 }
-function drawCone(){
- const c=$('#cone');if(!c)return;const f=S.fov/2*D;
- c.setAttribute('d',`M0 0L${(Math.sin(-f)*104).toFixed(1)} ${(-Math.cos(f)*104).toFixed(1)}A104 104 0 0 1 ${(Math.sin(f)*104).toFixed(1)} ${(-Math.cos(f)*104).toFixed(1)}Z`);
-}
-function rotRadar(h){
- const g=$('#rg'),n=$('#nmark');if(!g)return;
- g.setAttribute('transform',`rotate(${(-h).toFixed(1)})`);
- n.setAttribute('transform',`translate(${(Math.sin(-h*D)*104).toFixed(1)} ${(-Math.cos(-h*D)*104).toFixed(1)})`);
+function drawCone(){coneH=null}
+function updateCone(h){
+ if(!map||!pos||(coneH!=null&&Math.abs(adiff(h,coneH))<1))return;coneH=h;
+ const L0=S.rad*1000,pts=[[pos.lat,pos.lon]],k=Math.cos(pos.lat*D)*111320;
+ for(let a=h-S.fov/2;a<=h+S.fov/2+0.01;a+=Math.max(2,S.fov/20))pts.push([pos.lat+L0*Math.cos(a*D)/111320,pos.lon+L0*Math.sin(a*D)/k]);
+ pts.push([pos.lat,pos.lon]);coneL.setLatLngs(pts);
 }
 function drawCalib(){
  $('#calib').innerHTML=S.off?`Kompass-Korrektur: ${S.off>0?'+':''}${Math.round(S.off)}° <button class="sbtn" id="resetOff" type="button">Zurücksetzen</button>`:'';
@@ -427,7 +457,8 @@ function drawCalib(){
 let lastH=null,lastListH=null,lastList=0;
 function loop(){
  const h=heading();
- if(dirty||lastH==null||Math.abs(adiff(h,lastH))>0.3){drawPano(h);rotRadar(h);lastH=h}
+ if(dirty||lastH==null||Math.abs(adiff(h,lastH))>0.3){drawPano(h);lastH=h}
+ updateCone(h);
  if(dirty||lastListH==null||(Math.abs(adiff(h,lastListH))>2&&Date.now()-lastList>400)){drawLists(h);lastListH=h;lastList=Date.now()}
  dirty=false;requestAnimationFrame(loop);
 }
@@ -468,6 +499,7 @@ addEventListener('keydown',e=>{
  if(e.key==='ArrowRight'){manualH=norm(manualH+5);dirty=true}
 });
 document.addEventListener('click',e=>{
+ if(e.target.closest('#retry')){lastLoad=null;loadData();return}
  if(e.target.closest('#resetOff')){S.off=0;save();drawCalib();dirty=true;return}
  const b=e.target.closest('[data-i]');if(b&&!dragMoved)openSheet(+b.dataset.i);
 });
@@ -489,7 +521,7 @@ rad.addEventListener('change',()=>{S.rad=+rad.value;save();if(pos)loadData()});
 $('#reload').addEventListener('click',()=>{try{localStorage.removeItem('peilung:data')}catch(e){}lastLoad=null;if(pos)loadData();else toast('Noch kein Standort')});
 $('#chips').innerHTML=Object.entries(CATS).map(([k,c])=>`<button class="chip${S.cats[k]?' on':''}" data-cat="${k}" style="--c:${c.cl||c.c}" type="button" aria-pressed="${!!S.cats[k]}"><svg><use href="#i-${k}"/></svg>${c.n}</button>`).join('');
 $('#chips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;const k=b.dataset.cat;
- S.cats[k]=S.cats[k]?0:1;b.classList.toggle('on',!!S.cats[k]);b.setAttribute('aria-pressed',!!S.cats[k]);save();buildRadar();dirty=true});
+ S.cats[k]=S.cats[k]?0:1;b.classList.toggle('on',!!S.cats[k]);b.setAttribute('aria-pressed',!!S.cats[k]);save();updateMapItems();dirty=true});
 $('#camBtn').addEventListener('click',async()=>{
  const v=$('#cam'),b=$('#camBtn');
  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;pano.classList.remove('cam');b.classList.remove('on');return}
@@ -512,7 +544,7 @@ $('#demo').addEventListener('click',()=>{
  toast('Demo: Brocken im Harz. Wische über das Panorama zum Drehen.');
 });
 addEventListener('resize',()=>dirty=true);
-drawCalib();buildRadar();requestAnimationFrame(loop);
+drawCalib();initMap();requestAnimationFrame(loop);
 }
 </script>
 </body>
