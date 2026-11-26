@@ -35,7 +35,13 @@ button,select,input{font:inherit;color:inherit}
 .stat{font-size:13px;padding:4px 9px;border-radius:99px;background:#ffffff1a;white-space:nowrap}
 .stat.ok{background:#1f8f6a}.stat.warn{background:#a8561c}
 .pano{position:relative;height:min(52vh,460px);min-height:300px;overflow:hidden;touch-action:pan-y;user-select:none;
-background:linear-gradient(#0b2e25 0%,#14513f 55%,#2a7a5e 72%,#0a221c 72%,#071713 100%);color:#fff}
+background:linear-gradient(#0b2e25 0%,#1b5646 55%,#6aa58f 100%);color:#fff}
+#sky{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+.ico{position:absolute;transform:translateX(-50%);width:38px;height:38px;border-radius:50%;border:2px solid var(--c);background:#06140fc8;display:grid;place-items:center;padding:0;cursor:pointer;box-shadow:0 1px 6px #0007}
+.ico svg{width:21px;height:21px;color:var(--c)}
+.occ{opacity:.45}
+.dot{position:absolute;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:#fff;box-shadow:0 0 0 1px #0008;pointer-events:none}
+.panoNote{position:absolute;left:8px;bottom:52px;z-index:3;font-size:12px;opacity:.75;pointer-events:none;max-width:60%}
 .pano video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
 .pano.cam{background:#000}.pano.cam video{display:block}
 .pano.cam .mk{background:#000000b0}
@@ -61,8 +67,8 @@ background:#06140fd0;color:#fff;font-size:13px;line-height:1.15;white-space:nowr
 .mk svg{width:16px;height:16px;flex:none;color:var(--c)}
 .mk .nm{overflow:hidden;text-overflow:ellipsis;font-weight:600}
 .mk .ds{opacity:.8;font-variant-numeric:tabular-nums}
-#tape{position:absolute;left:0;right:0;bottom:0;z-index:1;pointer-events:none}
-.hiddenNote{position:absolute;right:8px;bottom:6px;z-index:3;font-size:12px;opacity:.75;pointer-events:none}
+#tape{position:absolute;left:0;right:0;bottom:0;z-index:2;pointer-events:none}
+.hiddenNote{position:absolute;right:8px;bottom:52px;z-index:3;font-size:12px;opacity:.75;pointer-events:none}
 .start{position:absolute;inset:0;z-index:5;display:grid;place-content:center;gap:12px;padding:20px;text-align:center;background:#0b2e25f2}
 .start h1{font:700 34px/1.05 "Barlow Condensed",sans-serif;margin:0;text-wrap:balance}
 .start p{margin:0;max-width:34em;opacity:.9}
@@ -140,7 +146,9 @@ footer a{color:inherit}
   <p id="calHelp">Rote Linie auf ein Ziel richten, das du sicher erkennst, und <b>sein Schild antippen</b> – oder mit den Pfeilen verschieben.</p>
   <div class="cb"><button type="button" data-adj="-5">«&nbsp;5°</button><button type="button" data-adj="-1">‹&nbsp;1°</button><output id="calOut">±0°</output><button type="button" data-adj="1">1°&nbsp;›</button><button type="button" data-adj="5">5°&nbsp;»</button><button type="button" id="calReset">0</button><button type="button" class="ok" id="calDone">Fertig</button></div>
  </div>
+ <canvas id="sky"></canvas>
  <div id="marks"></div>
+ <div class="panoNote" id="panoNote"></div>
  <svg id="tape"></svg>
  <div class="hiddenNote" id="hiddenNote"></div>
  <div class="start" id="start">
@@ -162,6 +170,7 @@ footer a{color:inherit}
 </div>
 <div class="chips" id="chips"></div>
 <div class="loadState" id="loadState" role="status"></div>
+<div class="loadState" id="demState" role="status" style="margin-top:6px"></div>
 
 <main class="grid">
  <section><h2>Karte</h2><p class="sub" id="mapNote">Dein Standort, die Ziele und dein Sichtkegel</p><div id="map"></div>
@@ -197,7 +206,7 @@ try{const s=JSON.parse(localStorage.getItem('peilung:set')||'null');if(s)S={...S
 const save=()=>{try{localStorage.setItem('peilung:set',JSON.stringify(S))}catch(e){}};
 
 let pos=null,items=[],lastLoad=null,loading=false,dirty=true;
-let sm=null,lastEvt=0,absolute=true,manualH=0,compassOn=false,stream=null;
+let pm=0,sm=null,lastEvt=0,absolute=true,manualH=0,compassOn=false,stream=null;
 
 const norm=a=>((a%360)+360)%360;
 const adiff=(a,b)=>((a-b+540)%360)-180;
@@ -233,6 +242,7 @@ function onOri(e){
  }
  if(h==null)return;
  h=norm(h);
+ if(e.beta!=null){const pt=Math.asin(Math.max(-1,Math.min(1,-Math.cos(e.beta*D)*Math.cos((e.gamma||0)*D))))/D;pm+=(pt-pm)*0.25}
  if(sm==null)sm=h;else sm=norm(sm+adiff(h,sm)*0.22);
  if(!compassOn||Date.now()-lastEvt>3000)stat($('#cmpStat'),absolute?'Kompass aktiv':'Kompass relativ – kalibrieren',absolute?'ok':'warn');
  compassOn=true;lastEvt=Date.now();
@@ -264,6 +274,7 @@ function setPos(p){
  stat($('#gpsStat'),p.acc!=null?'GPS ±'+Math.round(p.acc)+' m':'Demo-Standort','ok');
  for(const it of items){it.d=dist(pos,it);it.b=bearing(pos,it)}
  dirty=true;mapPos();
+ if(!demPos||dist(demPos,pos)>250)loadDem();
  const need=!lastLoad||lastLoad.rad!==S.rad||dist(lastLoad,pos)>Math.max(1500,S.rad*250);
  if(need)loadData();
 }
@@ -288,9 +299,10 @@ node["place"~"^(city|town)$"]${b};
 node["place"="village"]${a};
 );out center tags qt;`;
 }
-const loadEl=$('#loadState');let loadTimer;
-function setLoad(html,cls){clearTimeout(loadTimer);loadEl.className='loadState'+(cls?' '+cls:'');loadEl.innerHTML=html;
- if(cls==='done')loadTimer=setTimeout(()=>{loadEl.innerHTML=''},4000)}
+const timers={};
+function setStat(id,html,cls){const el=$('#'+id);clearTimeout(timers[id]);el.className='loadState'+(cls?' '+cls:'');el.innerHTML=html;
+ if(cls==='done')timers[id]=setTimeout(()=>{el.innerHTML=''},4000)}
+const setLoad=(h,c)=>setStat('loadState',h,c);
 function classify(t){
  const h=parseFloat(t.height)||0,tt=t['tower:type'];
  if(t.place)return /^(city|town|village)$/.test(t.place)?'ort':null;
@@ -383,39 +395,157 @@ function useData(its,meta){
  items=its;lastLoad={lat:meta.lat,lon:meta.lon,rad:meta.rad};
  for(const it of items){it.d=dist(pos,it);it.b=bearing(pos,it)}
  const lim=farR()*1.05;items=items.filter(it=>it.d<=lim);
- dirty=true;updateMapItems();
+ computePoiAngles();dirty=true;updateMapItems();
+}
+
+/* ---------- Höhenmodell & Horizont (AWS Terrain Tiles, Terrarium) ---------- */
+const DEM_URLS=['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/','https://elevation-tiles-prod.s3.amazonaws.com/terrarium/'];
+const LEVELS=[{z:11,r:8000},{z:9,r:40000},{z:8,r:100000}];
+const BANDS=[2000,6000,20000,100000],EX=2,R2=2*6371000/0.87;
+const DEFH={kirche:35,funk:60,turm:25,leuchtturm:30,burg:15,wind:140,ort:8,berg:0};
+const tiles=new Map();let sky=null,h0=0,demPos=null,demBusy=false;
+const tcan=document.createElement('canvas');tcan.width=tcan.height=256;const tctx=tcan.getContext('2d',{willReadFrequently:true});
+const mx=(lon,n)=>(lon+180)/360*n,my=(lat,n)=>(1-Math.log(Math.tan(lat*D)+1/Math.cos(lat*D))/Math.PI)/2*n;
+async function getTile(z,x,y){
+ const k=z+'/'+x+'/'+y;
+ for(const base of DEM_URLS){
+  try{const r=await fetch(base+k+'.png');if(!r.ok)throw 0;
+   const bm=await createImageBitmap(await r.blob());tctx.clearRect(0,0,256,256);tctx.drawImage(bm,0,0);
+   const d=tctx.getImageData(0,0,256,256).data,a=new Float32Array(65536);
+   for(let i=0;i<65536;i++)a[i]=d[i*4]*256+d[i*4+1]+d[i*4+2]/256-32768;
+   tiles.set(k,a);return}catch(e){}
+ }
+ tiles.set(k,null);
+}
+function gp(z,x,y){const t=tiles.get(z+'/'+(x>>8)+'/'+(y>>8));return t?t[(y&255)*256+(x&255)]:NaN}
+function elevZ(z,lat,lon){
+ const n=256*2**z,px=mx(lon,n)-.5,py=my(lat,n)-.5,x0=Math.floor(px),y0=Math.floor(py),fx=px-x0,fy=py-y0;
+ return (gp(z,x0,y0)*(1-fx)+gp(z,x0+1,y0)*fx)*(1-fy)+(gp(z,x0,y0+1)*(1-fx)+gp(z,x0+1,y0+1)*fx)*fy;
+}
+function elevD(lat,lon,d){
+ for(const L of LEVELS)if(d<=L.r){const v=elevZ(L.z,lat,lon);if(v===v)return v}
+ for(const L of LEVELS){const v=elevZ(L.z,lat,lon);if(v===v)return v}
+ return NaN;
+}
+// höchster Geländewinkel (Grad) entlang einer Richtung bis maxD
+function rayMax(p,az,maxD,cb){
+ const ca=Math.cos(az*D),sa=Math.sin(az*D),kl=1/(111320*Math.cos(p.lat*D));let m=-90;
+ for(let d=30;d<=maxD;d+=Math.max(25,d*0.012)){
+  const e=elevD(p.lat+d*ca/111320,p.lon+d*sa*kl,d);
+  if(e===e){const a=Math.atan((e-h0-d*d/R2)/d)/D;if(a>m)m=a}
+  if(cb)cb(d,m);
+ }
+ return m;
+}
+function computeSky(p){
+ h0=elevD(p.lat,p.lon,0);if(h0!==h0)h0=0;h0+=2;
+ sky=BANDS.map(()=>new Float32Array(720).fill(-90));
+ for(let i=0;i<720;i++){let b=0;
+  const m=rayMax(p,i/2,BANDS[BANDS.length-1],(d,m)=>{while(b<BANDS.length-1&&d>BANDS[b]){sky[b][i]=m;b++}});
+  for(;b<BANDS.length;b++)sky[b][i]=m;
+ }
+}
+function skyAt(az,k){const f=norm(az)*2,i=Math.floor(f)%720,t=f-Math.floor(f);return sky[k][i]*(1-t)+sky[k][(i+1)%720]*t}
+function computePoiAngles(){
+ for(const it of items){it.ang=null;it.vis=null}
+ if(!demPos)return;
+ for(const it of items){
+  const d=dist(demPos,it);if(d<50)continue;
+  let base=it.t.ele!=null&&it.cat==='berg'?parseFloat(it.t.ele):elevD(it.lat,it.lon,d);if(base!==base)continue;
+  const top=base+(parseFloat(it.t.height)||DEFH[it.cat]||0);
+  it.ang=Math.atan((top-h0-d*d/R2)/d)/D;
+  it.vis=it.ang>=rayMax(demPos,bearing(demPos,it),d*0.96)-0.08;
+ }
+}
+async function loadDem(){
+ if(demBusy||!pos)return;demBusy=true;const p={lat:pos.lat,lon:pos.lon};
+ for(const [k,v] of tiles)if(v===null)tiles.delete(k);
+ const jobs=[];
+ for(const L of LEVELS){const n=256*2**L.z,dl=L.r/111320,dn=L.r/(111320*Math.cos(p.lat*D));
+  for(let x=Math.floor(mx(p.lon-dn,n)/256);x<=Math.floor(mx(p.lon+dn,n)/256);x++)
+   for(let y=Math.floor(my(p.lat+dl,n)/256);y<=Math.floor(my(p.lat-dl,n)/256);y++)jobs.push(L.z+'/'+x+'/'+y)}
+ const todo=jobs.filter(k=>!tiles.has(k));
+ if(todo.length){setStat('demState',`<span class="spin"></span>Lade Höhendaten für das Bergpanorama… (${todo.length} Kacheln)`);
+  let i=0;await Promise.all(Array.from({length:6},async()=>{while(i<todo.length){const [z,x,y]=todo[i++].split('/');await getTile(+z,+x,+y)}}));}
+ if(!jobs.some(k=>tiles.get(k))){
+  setStat('demState','Höhendaten nicht erreichbar – Horizont ohne Berge. <button class="sbtn" type="button" id="retryDem">Erneut versuchen</button>','err');
+  demBusy=false;return}
+ setStat('demState','<span class="spin"></span>Berechne Horizont…');
+ await new Promise(r=>setTimeout(r,30));
+ computeSky(p);demPos=p;computePoiAngles();dirty=true;demBusy=false;
+ setStat('demState','Bergpanorama berechnet (Standort '+Math.round(h0-2)+' m ü. NN)','done');
 }
 
 /* ---------- Darstellung ---------- */
 const pano=$('#pano'),marks=$('#marks'),tape=$('#tape');
 const shown=()=>items.filter(it=>S.cats[it.cat]&&it.d!=null);
 function inView(h){const f=S.fov/2;return shown().filter(it=>Math.abs(adiff(it.b,h))<=f)}
+const cv=$('#sky'),cx=cv.getContext('2d');
+const BANDCOL=['#0c2a22','#183f33','#2a5c4b','#4a8570'];
+function drawSky(h,W,H,hy,ppd,ppdV,cam){
+ const dpr=window.devicePixelRatio||1;
+ if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
+ cx.setTransform(dpr,0,0,dpr,0,0);cx.clearRect(0,0,W,H);
+ if(!sky){
+  if(cam){cx.strokeStyle='rgba(255,255,255,.6)';cx.setLineDash([6,6]);cx.beginPath();cx.moveTo(0,hy);cx.lineTo(W,hy);cx.stroke();cx.setLineDash([])}
+  else{cx.fillStyle=BANDCOL[0];cx.fillRect(0,hy,W,H-hy)}
+  return;
+ }
+ for(let k=BANDS.length-1;k>=0;k--){
+  const pts=[];for(let x=0;x<=W+2;x+=2)pts.push([x,hy-skyAt(h+(x-W/2)/ppd,k)*ppdV]);
+  cx.beginPath();pts.forEach(([x,y],i)=>i?cx.lineTo(x,y):cx.moveTo(x,y));
+  const far=k===BANDS.length-1;
+  if(!cam){cx.lineTo(W+2,H+2);cx.lineTo(0,H+2);cx.closePath();cx.fillStyle=BANDCOL[k];cx.fill();
+   if(far){cx.beginPath();pts.forEach(([x,y],i)=>i?cx.lineTo(x,y):cx.moveTo(x,y));cx.strokeStyle='rgba(255,255,255,.6)';cx.lineWidth=1.2;cx.stroke()}}
+  else{cx.strokeStyle=far?'rgba(255,255,255,.95)':'rgba(255,255,255,.4)';cx.lineWidth=far?2.2:1;
+   cx.shadowColor='#000';cx.shadowBlur=far?4:0;cx.stroke();cx.shadowBlur=0}
+ }
+}
 function drawPano(h){
- const W=pano.clientWidth,H=pano.clientHeight,hy=Math.round(H*0.72),laneH=30,maxL=Math.max(1,Math.floor((hy-84)/laneH));
+ const W=pano.clientWidth,H=pano.clientHeight,tapeH=46,cam=pano.classList.contains('cam');
+ const ppd=W/S.fov,ppdV=cam?ppd:ppd*EX;
+ const hy=cam?H/2+pm*ppd:(H-tapeH)*0.8;
  $('#hdg').textContent=Math.round(h)+'°';
  $('#hdgDir').textContent=dirName(h)+(hasCompass()?'':' · manuell');
+ drawSky(h,W,H,hy,ppd,ppdV,cam);
+ $('#panoNote').textContent=cam?(sky?'Linie = berechnete Bergkontur':''):(sky?`Höhen ${EX}-fach überhöht`:'');
+ const yOf=it=>it.ang!=null?hy-it.ang*ppdV:hy;
  const vis=inView(h).map(it=>({it,rel:adiff(it.b,h)}));
  vis.sort((a,b)=>b.it.w/Math.sqrt(b.it.d/1000+.5)-a.it.w/Math.sqrt(a.it.d/1000+.5));
- const lanes=Array.from({length:maxL},()=>[]);let hidden=0,html='';
- for(const v of vis){
-  const x=W/2+v.rel/S.fov*W,lw=Math.min(200,v.it.name.length*7+70),x0=x-lw/2,x1=x+lw/2;
-  let l=lanes.findIndex(L=>L.every(([a,b])=>x1<a-4||x0>b+4));
-  if(l<0){hidden++;continue}
-  lanes[l].push([x0,x1]);
-  const c=CATS[v.it.cat].c,bot=H-hy+10+l*laneH,idx=items.indexOf(v.it);
-  html+=`<i class="stem" style="left:${x.toFixed(1)}px;bottom:${H-hy}px;height:${10+l*laneH}px"></i>`+
-   `<button class="mk" data-i="${idx}" style="left:${x.toFixed(1)}px;bottom:${bot}px;--c:${c}"><svg><use href="#i-${v.it.cat}"/></svg><span class="nm">${esc(v.it.name)}</span><span class="ds">${fmtD(v.it.d)}</span></button>`;
+ let hidden=0,html='';
+ if(cam){
+  const placed=[];
+  for(const v of vis){
+   const it=v.it,x=W/2+v.rel*ppd,py=yOf(it);let y=null;
+   for(let l=0;l<6;l++){const yy=py-26-l*42;if(placed.every(([a,b])=>Math.abs(a-x)>40||Math.abs(b-yy)>40)){y=yy;break}}
+   if(y==null||y<-20||y>H){hidden++;continue}
+   placed.push([x,y]);const c=CATS[it.cat],occ=it.vis===false?' occ':'';
+   html+=`<i class="stem" style="left:${x.toFixed(1)}px;top:${(y+19).toFixed(1)}px;height:${Math.max(0,py-y-19).toFixed(1)}px"></i><i class="dot" style="left:${x.toFixed(1)}px;top:${py.toFixed(1)}px"></i>`+
+    `<button class="ico${occ}" data-i="${items.indexOf(it)}" style="left:${x.toFixed(1)}px;top:${(y-19).toFixed(1)}px;--c:${c.c}" aria-label="${esc(it.name)}"><svg><use href="#i-${it.cat}"/></svg></button>`;
+  }
+ }else{
+  let top=hy;if(sky)for(let x=0;x<=W;x+=6)top=Math.min(top,hy-skyAt(h+(x-W/2)/ppd,BANDS.length-1)*ppdV);
+  const base=Math.min(top,hy)-10,laneH=30,lanes=[];
+  for(const v of vis){
+   const it=v.it,x=W/2+v.rel*ppd,lw=Math.min(200,it.name.length*7+70),x0=x-lw/2,x1=x+lw/2;
+   let l=0;for(;;l++){if(base-l*laneH-24<74){l=-1;break}if(!lanes[l])lanes[l]=[];if(lanes[l].every(([a,b])=>x1<a-4||x0>b+4))break}
+   if(l<0){hidden++;continue}
+   lanes[l].push([x0,x1]);
+   const c=CATS[it.cat],lb=base-l*laneH,py=Math.max(lb,yOf(it)),occ=it.vis===false?' occ':'';
+   html+=`<i class="stem" style="left:${x.toFixed(1)}px;top:${lb.toFixed(1)}px;height:${(py-lb).toFixed(1)}px"></i>`+(it.ang!=null?`<i class="dot" style="left:${x.toFixed(1)}px;top:${py.toFixed(1)}px"></i>`:'')+
+    `<button class="mk${occ}" data-i="${items.indexOf(it)}" style="left:${x.toFixed(1)}px;top:${(lb-24).toFixed(1)}px;--c:${c.c}"><svg><use href="#i-${it.cat}"/></svg><span class="nm">${esc(it.name)}</span><span class="ds">${fmtD(it.d)}</span></button>`;
+  }
  }
  marks.innerHTML=html;
  $('#hiddenNote').textContent=hidden?`+${hidden} weitere (Liste unten)`:'';
  // Kompassband
- const th=H-hy;tape.setAttribute('width',W);tape.setAttribute('height',th);tape.style.height=th+'px';
- let s='',step=S.fov>80?30:15;
+ tape.setAttribute('width',W);tape.setAttribute('height',tapeH);tape.style.height=tapeH+'px';
+ let s=`<rect width="${W}" height="${tapeH}" fill="#06140f" fill-opacity=".6"/>`,step=S.fov>80?30:15;
  for(let d=Math.floor((h-S.fov/2-10)/5)*5;d<=h+S.fov/2+10;d+=5){
   const x=W/2+(d-h)/S.fov*W,nd=norm(d),card=nd%45===0;
   s+=`<line x1="${x}" x2="${x}" y1="0" y2="${card?16:nd%15===0?11:6}" stroke="#fff" stroke-opacity="${card?1:.6}" stroke-width="${card?2:1}"/>`;
-  if(card)s+=`<text x="${x}" y="34" fill="${nd===0?'#ff8a70':'#fff'}" font-size="17" font-weight="700" text-anchor="middle" font-family="Barlow Condensed,sans-serif">${DIRS[nd/22.5]}</text>`;
-  else if(nd%step===0)s+=`<text x="${x}" y="30" fill="#fff" fill-opacity=".75" font-size="12" text-anchor="middle">${nd}</text>`;
+  if(card)s+=`<text x="${x}" y="36" fill="${nd===0?'#ff8a70':'#fff'}" font-size="17" font-weight="700" text-anchor="middle" font-family="Barlow Condensed,sans-serif">${DIRS[nd/22.5]}</text>`;
+  else if(nd%step===0)s+=`<text x="${x}" y="32" fill="#fff" fill-opacity=".75" font-size="12" text-anchor="middle">${nd}</text>`;
  }
  tape.innerHTML=s;
 }
@@ -475,10 +605,11 @@ function drawCalib(){
  $('#calib').innerHTML=S.off?`Kompass-Korrektur: ${S.off>0?'+':''}${Math.round(S.off)}° <button class="sbtn" id="resetOff" type="button">Zurücksetzen</button>`:'';
 }
 
-let lastH=null,lastListH=null,lastList=0;
+let lastH=null,lastP=0,lastListH=null,lastList=0;
 function loop(){
  const h=heading();
- if(dirty||lastH==null||Math.abs(adiff(h,lastH))>0.3){drawPano(h);lastH=h}
+ const camOn=pano.classList.contains('cam');
+ if(dirty||lastH==null||Math.abs(adiff(h,lastH))>0.3||(camOn&&Math.abs(pm-lastP)>0.25)){drawPano(h);lastH=h;lastP=pm}
  updateCone(h);
  if(dirty||lastListH==null||(Math.abs(adiff(h,lastListH))>2&&Date.now()-lastList>400)){drawLists(h);lastListH=h;lastList=Date.now()}
  dirty=false;requestAnimationFrame(loop);
@@ -489,8 +620,9 @@ const sheet=$('#sheet'),card=$('#sheetCard');let cur=null;
 function openSheet(i){
  const it=items[i];if(!it)return;cur=it;const t=it.t,h=heading(),r=adiff(it.b,h);
  const f=[['Entfernung',fmtD(it.d)+' Luftlinie'],['Richtung',`${Math.round(it.b)}° ${dirName(it.b)} · ${Math.abs(r)<1.5?'genau voraus':Math.round(Math.abs(r))+'° '+(r<0?'links':'rechts')}`]];
- if(t.ele){f.push(['Höhe',Math.round(parseFloat(t.ele))+' m ü. NN']);
-  if(pos&&pos.alt!=null){const a=Math.atan2(parseFloat(t.ele)-pos.alt,it.d)/D;f.push(['Höhenwinkel',nf.format(a)+'° über/unter Augenhöhe'])}}
+ if(t.ele)f.push(['Höhe',Math.round(parseFloat(t.ele))+' m ü. NN']);
+ if(it.ang!=null){f.push(['Höhenwinkel',(it.ang>=0?'+':'')+nf.format(it.ang)+'° zur Augenhöhe']);
+  f.push(['Sicht',it.vis?'frei – sollte zu sehen sein':'vom Gelände verdeckt'])}
  if(t.height)f.push(['Bauhöhe',Math.round(parseFloat(t.height))+' m']);
  if(t.population)f.push(['Einwohner',Number(t.population).toLocaleString('de-DE')]);
  if(it.n)f.push(['Anlagen',String(it.n)]);
@@ -534,10 +666,11 @@ addEventListener('keydown',e=>{
  if(e.key==='ArrowRight'){manualH=norm(manualH+5);dirty=true}
 });
 document.addEventListener('click',e=>{
+ if(e.target.closest('#retryDem')){loadDem();return}
  if(e.target.closest('#retry')){lastLoad=null;loadData();return}
  if(e.target.closest('#resetOff')){S.off=0;save();drawCalib();dirty=true;return}
  const b=e.target.closest('[data-i]');if(!b||dragMoved)return;
- if(calib&&b.classList.contains('mk')){calibrateTo(items[+b.dataset.i]);return}
+ if(calib&&b.closest('#marks')){calibrateTo(items[+b.dataset.i]);return}
  openSheet(+b.dataset.i);
 });
 
@@ -561,10 +694,10 @@ $('#chips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b
  S.cats[k]=S.cats[k]?0:1;b.classList.toggle('on',!!S.cats[k]);b.setAttribute('aria-pressed',!!S.cats[k]);save();updateMapItems();dirty=true});
 $('#camBtn').addEventListener('click',async()=>{
  const v=$('#cam'),b=$('#camBtn');
- if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;pano.classList.remove('cam');b.classList.remove('on');return}
+ if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;pano.classList.remove('cam');b.classList.remove('on');dirty=true;return}
  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
   v.srcObject=stream;await v.play().catch(()=>{});pano.classList.add('cam');b.classList.add('on');
-  if(S.fov>70){S.fov=55;fov.value=55;$('#fovOut').textContent='55°';drawCone();dirty=true}
+  S.fov=50;fov.value=50;$('#fovOut').textContent='50°';save();drawCone();dirty=true;
  }catch(e){toast('Kamera nicht verfügbar')}
 });
 async function wake(){try{if(navigator.wakeLock)await navigator.wakeLock.request('screen')}catch(e){}}
