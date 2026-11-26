@@ -11,6 +11,17 @@ Bei jedem Push auf `main` baut GitHub Actions automatisch eine neue APK:
 
 Auf dem Handy die APK öffnen und „Installation aus unbekannten Quellen“ für den Browser bzw. Dateimanager erlauben. Neue Versionen lassen sich direkt über die alte installieren.
 
+## iPhone (Web-App)
+
+Die App läuft auf dem iPhone als Web-App aus `web/`, veröffentlicht über GitHub Pages:
+**https://jacqueline1606.github.io/Orientierung/**
+
+1. Adresse in **Safari** öffnen
+2. Teilen-Symbol → **„Zum Home-Bildschirm“**
+3. App über das neue Symbol starten → „Standort & Kompass starten“ → Bewegung/Ausrichtung und Standort erlauben
+
+Bei jeder Änderung in `web/` wird die Seite automatisch neu veröffentlicht (Workflow „Web-App veröffentlichen“).
+
 ## Aufbau
 
 | Pfad | Inhalt |
