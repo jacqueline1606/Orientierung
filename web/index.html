@@ -21,9 +21,10 @@
    PICTURE: Horizont-Panorama mit Peilstrichen, darunter Kompassband
    COLOUR/TYPE: Tiefgrün, Weiß, Signalrot; Barlow (Schilderschrift)
    LAYOUT: Panorama oben, Steuerung, Listen, Radar */
-:root{color-scheme:light dark;
---bg:light-dark(#f2f5f1,#0b1411);--ink:light-dark(#0f1e18,#e6eee8);--muted:light-dark(#566760,#94a79d);
---line:light-dark(#d3dcd4,#22342c);--card:light-dark(#fff,#12201b);--green:#0d6b52;--deep:#0b2e25;--sig:#ec4a2c}
+:root{color-scheme:light;--bg:#f3f4f2;--ink:#14191c;--muted:#5b6569;--line:#d6dbdc;--card:#fff;
+--green:#0d6b52;--deep:#0b2e25;--sig:#ec4a2c;--sky1:#0b2e25;--sky2:#1b5646;--sky3:#6aa58f}
+@media(prefers-color-scheme:dark){:root:not([data-mode=light]){color-scheme:dark;--bg:#0e1112;--ink:#e8ecec;--muted:#9aa3a8;--line:#2a3034;--card:#171b1d}}
+:root[data-mode=dark]{color-scheme:dark;--bg:#0e1112;--ink:#e8ecec;--muted:#9aa3a8;--line:#2a3034;--card:#171b1d}
 *{box-sizing:border-box;min-width:0}
 [hidden]{display:none!important}
 html,body{margin:0}
@@ -32,10 +33,28 @@ padding-bottom:env(safe-area-inset-bottom)}
 button,select,input{font:inherit;color:inherit}
 .top{display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;background:var(--deep);color:#fff;flex-wrap:wrap}
 .brand{font:700 22px/1 "Barlow Condensed",sans-serif;letter-spacing:.02em;margin-right:auto}
+.gear{width:44px;height:44px;border-radius:50%;border:0;background:#ffffff1a;color:#fff;display:grid;place-items:center;cursor:pointer;padding:0}
+.gear svg{width:24px;height:24px}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--line);min-height:58px;cursor:pointer}
+.sw small,.rg small{display:block;color:var(--muted);font-size:13px;line-height:1.3}
+.sw input{appearance:none;-webkit-appearance:none;flex:none;width:52px;height:30px;border-radius:99px;background:var(--line);position:relative;margin:0;cursor:pointer;transition:background .2s}
+.sw input::before{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0005;transition:transform .2s}
+.sw input:checked{background:var(--green)}.sw input:checked::before{transform:translateX(22px)}
+.rg{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.rg input{grid-column:1/-1;width:100%;accent-color:var(--green)}
+.setCard h4{margin:18px 0 2px;font:700 19px/1.1 "Barlow Condensed",sans-serif}
+.swatches{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.swatch{border:2px solid var(--line);border-radius:12px;padding:7px;background:var(--card);cursor:pointer;text-align:left;font-size:14px;color:var(--ink)}
+.swatch.on{border-color:var(--ink)}
+.swatch i{display:block;height:28px;border-radius:7px;margin-bottom:6px}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:8px}
+.seg button{flex:1;min-height:44px;border:0;background:var(--card);color:var(--ink);cursor:pointer;font-size:15px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--green);color:#fff}
 .stat{font-size:13px;padding:4px 9px;border-radius:99px;background:#ffffff1a;white-space:nowrap}
 .stat.ok{background:#1f8f6a}.stat.warn{background:#a8561c}
 .pano{position:relative;height:min(52vh,460px);min-height:300px;overflow:hidden;touch-action:pan-y;user-select:none;
-background:linear-gradient(#0b2e25 0%,#1b5646 55%,#6aa58f 100%);color:#fff}
+background:linear-gradient(var(--sky1) 0%,var(--sky2) 55%,var(--sky3) 100%);color:#fff}
 #sky{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
 .ico{position:absolute;transform:translateX(-50%);width:38px;height:38px;border-radius:50%;border:2px solid var(--c);background:#06140fc8;display:grid;place-items:center;padding:0;cursor:pointer;box-shadow:0 1px 6px #0007}
 .ico svg{width:21px;height:21px;color:var(--c)}
@@ -69,7 +88,7 @@ background:#06140fd0;color:#fff;font-size:13px;line-height:1.15;white-space:nowr
 .mk .ds{opacity:.8;font-variant-numeric:tabular-nums}
 #tape{position:absolute;left:0;right:0;bottom:0;z-index:2;pointer-events:none}
 .hiddenNote{position:absolute;right:8px;bottom:52px;z-index:3;font-size:12px;opacity:.75;pointer-events:none}
-.start{position:absolute;inset:0;z-index:5;display:grid;place-content:center;gap:12px;padding:20px;text-align:center;background:#0b2e25f2}
+.start{position:absolute;inset:0;z-index:5;display:grid;place-content:center;gap:12px;padding:20px;text-align:center;background:var(--deep);background:color-mix(in srgb,var(--deep) 95%,transparent)}
 .start h1{font:700 34px/1.05 "Barlow Condensed",sans-serif;margin:0;text-wrap:balance}
 .start p{margin:0;max-width:34em;opacity:.9}
 .btn{min-height:44px;padding:10px 18px;border-radius:10px;border:0;background:var(--sig);color:#fff;font-weight:600;cursor:pointer}
@@ -135,6 +154,7 @@ footer a{color:inherit}
  <div class="brand">Peilung</div>
  <span class="stat" id="gpsStat">GPS –</span>
  <span class="stat" id="cmpStat">Kompass –</span>
+ <button class="gear" id="gear" type="button" aria-label="Einstellungen"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.3 7.3 0 0 0-1.7-1L15 3h-4l-.4 2.7a7.3 7.3 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.3 7.3 0 0 0 1.7 1L11 21h4l.4-2.7a7.3 7.3 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
 </header>
 
 <section class="pano" id="pano" aria-label="Panorama in Blickrichtung">
@@ -182,6 +202,20 @@ footer a{color:inherit}
 <footer>Kartendaten © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap-Mitwirkende</a> (ODbL), abgefragt über die Overpass API. Handy-Kompasse zeigen magnetisch Nord und werden durch Metall, Autos oder Hüllen mit Magnet gestört – tippe ein bekanntes Ziel an und wähle „Kompass hierauf kalibrieren“.</footer>
 
 <div class="sheet" id="sheet" hidden><div class="sheetCard" id="sheetCard" role="dialog" aria-modal="true"></div></div>
+<div class="sheet" id="setSheet" hidden><div class="sheetCard setCard" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+ <h3 id="setTitle">Einstellungen</h3>
+ <h4>Horizont</h4>
+ <label class="sw"><span>Bergkontur anzeigen<small>Berechnete Horizontlinie im Panorama und im Kamerabild</small></span><input type="checkbox" id="optHorizon"></label>
+ <label class="sw"><span>Nähere Bergketten<small>Zusätzliche Linien für Hügel und Höhenzüge im Vordergrund</small></span><input type="checkbox" id="optRidges"></label>
+ <label class="rg"><span>Berge überhöhen<small>Nur in der Ansicht ohne Kamera</small></span><output id="exOut"></output><input type="range" id="optEx" min="1" max="4" step="0.5"></label>
+ <h4>Kamerabild</h4>
+ <label class="sw"><span>Beschriftung der Ziele<small>Aus: nur Symbole – antippen zeigt die Infos</small></span><input type="checkbox" id="optCamLabels"></label>
+ <h4>Farbschema</h4>
+ <div class="swatches" id="swatches"></div>
+ <h4>Hell oder dunkel</h4>
+ <div class="seg" id="modeSeg"><button type="button" data-mode="auto">Wie System</button><button type="button" data-mode="light">Hell</button><button type="button" data-mode="dark">Dunkel</button></div>
+ <div class="row"><button class="btn" id="setClose" type="button">Fertig</button></div>
+</div></div>
 <div id="toast" role="status"></div>
 
 <script>
@@ -198,10 +232,19 @@ const CATS={
  turm:{n:'Türme',s:'Turm',c:'#c8cf55'},
  wind:{n:'Windräder',s:'Windrad',c:'#8fd19e'}
 };
+const THEMES={
+ wald:{n:'Waldgrün',deep:'#0b2e25',prim:'#0d6b52',sig:'#ec4a2c',sky:['#0b2e25','#1b5646','#6aa58f'],bands:['#0c2a22','#183f33','#2a5c4b','#4a8570']},
+ ozean:{n:'Ozeanblau',deep:'#0c2440',prim:'#1d5fa8',sig:'#ff7a3d',sky:['#0c2440','#1f4f80','#82b3da'],bands:['#0b1d33','#16304f','#284c73','#4a7299']},
+ graphit:{n:'Graphit',deep:'#1b1e21',prim:'#4b5661',sig:'#f2b705',sky:['#15181b','#343b42','#8f989f'],bands:['#111316','#21262b','#353c43','#58616a']},
+ bordeaux:{n:'Bordeaux',deep:'#3a0f1c',prim:'#8c1d3a',sig:'#ffb347',sky:['#2b0b15','#5e1f33','#c98a8f'],bands:['#220810','#3a1220','#562235','#7e4655']},
+ violett:{n:'Violett',deep:'#24163f',prim:'#5b3fa3',sig:'#2fd0ad',sky:['#1d1233','#41306f','#a596d6'],bands:['#150d27','#251942','#3b2c63','#5f5190']},
+ sand:{n:'Sand',deep:'#3b2a16',prim:'#9c5f27',sig:'#1f8f86',sky:['#3b2a16','#8a6a3e','#e3c999'],bands:['#2a1d0f','#4a3520','#6d5434','#957a55']}
+};
+const TH=()=>THEMES[S.theme]||THEMES.wald;
 const DIRS=['N','NNO','NO','ONO','O','OSO','SO','SSO','S','SSW','SW','WSW','W','WNW','NW','NNW'];
 const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 
-let S={fov:60,rad:10,off:0,cats:{ort:1,berg:1,burg:1,kirche:1,leuchtturm:1,funk:1,turm:1,wind:0}};
+let S={fov:60,rad:10,off:0,horizon:1,ridges:1,ex:2,camLabels:0,theme:'wald',mode:'auto',cats:{ort:1,berg:1,burg:1,kirche:1,leuchtturm:1,funk:1,turm:1,wind:0}};
 try{const s=JSON.parse(localStorage.getItem('peilung:set')||'null');if(s)S={...S,...s,cats:{...S.cats,...(s.cats||{})}}}catch(e){}
 const save=()=>{try{localStorage.setItem('peilung:set',JSON.stringify(S))}catch(e){}};
 
@@ -401,7 +444,7 @@ function useData(its,meta){
 /* ---------- Höhenmodell & Horizont (AWS Terrain Tiles, Terrarium) ---------- */
 const DEM_URLS=['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/','https://elevation-tiles-prod.s3.amazonaws.com/terrarium/'];
 const LEVELS=[{z:11,r:8000},{z:9,r:40000},{z:8,r:100000}];
-const BANDS=[2000,6000,20000,100000],EX=2,R2=2*6371000/0.87;
+const BANDS=[2000,6000,20000,100000],R2=2*6371000/0.87;
 const DEFH={kirche:35,funk:60,turm:25,leuchtturm:30,burg:15,wind:140,ort:8,berg:0};
 const tiles=new Map();let sky=null,h0=0,demPos=null,demBusy=false;
 const tcan=document.createElement('canvas');tcan.width=tcan.height=256;const tctx=tcan.getContext('2d',{willReadFrequently:true});
@@ -481,21 +524,23 @@ const pano=$('#pano'),marks=$('#marks'),tape=$('#tape');
 const shown=()=>items.filter(it=>S.cats[it.cat]&&it.d!=null);
 function inView(h){const f=S.fov/2;return shown().filter(it=>Math.abs(adiff(it.b,h))<=f)}
 const cv=$('#sky'),cx=cv.getContext('2d');
-const BANDCOL=['#0c2a22','#183f33','#2a5c4b','#4a8570'];
 function drawSky(h,W,H,hy,ppd,ppdV,cam){
  const dpr=window.devicePixelRatio||1;
  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
  cx.setTransform(dpr,0,0,dpr,0,0);cx.clearRect(0,0,W,H);
  if(!sky){
   if(cam){cx.strokeStyle='rgba(255,255,255,.6)';cx.setLineDash([6,6]);cx.beginPath();cx.moveTo(0,hy);cx.lineTo(W,hy);cx.stroke();cx.setLineDash([])}
-  else{cx.fillStyle=BANDCOL[0];cx.fillRect(0,hy,W,H-hy)}
+  else{cx.fillStyle=TH().bands[0];cx.fillRect(0,hy,W,H-hy)}
   return;
  }
+ const BC=TH().bands;
+ if(!S.horizon){if(!cam){cx.fillStyle=BC[1];cx.fillRect(0,hy,W,H-hy)}return}
  for(let k=BANDS.length-1;k>=0;k--){
+  if(!S.ridges&&k!==BANDS.length-1)continue;
   const pts=[];for(let x=0;x<=W+2;x+=2)pts.push([x,hy-skyAt(h+(x-W/2)/ppd,k)*ppdV]);
   cx.beginPath();pts.forEach(([x,y],i)=>i?cx.lineTo(x,y):cx.moveTo(x,y));
   const far=k===BANDS.length-1;
-  if(!cam){cx.lineTo(W+2,H+2);cx.lineTo(0,H+2);cx.closePath();cx.fillStyle=BANDCOL[k];cx.fill();
+  if(!cam){cx.lineTo(W+2,H+2);cx.lineTo(0,H+2);cx.closePath();cx.fillStyle=S.ridges?BC[k]:BC[1];cx.fill();
    if(far){cx.beginPath();pts.forEach(([x,y],i)=>i?cx.lineTo(x,y):cx.moveTo(x,y));cx.strokeStyle='rgba(255,255,255,.6)';cx.lineWidth=1.2;cx.stroke()}}
   else{cx.strokeStyle=far?'rgba(255,255,255,.95)':'rgba(255,255,255,.4)';cx.lineWidth=far?2.2:1;
    cx.shadowColor='#000';cx.shadowBlur=far?4:0;cx.stroke();cx.shadowBlur=0}
@@ -503,25 +548,29 @@ function drawSky(h,W,H,hy,ppd,ppdV,cam){
 }
 function drawPano(h){
  const W=pano.clientWidth,H=pano.clientHeight,tapeH=46,cam=pano.classList.contains('cam');
- const ppd=W/S.fov,ppdV=cam?ppd:ppd*EX;
+ const ppd=W/S.fov,ppdV=cam?ppd:ppd*S.ex;
  const hy=cam?H/2+pm*ppd:(H-tapeH)*0.8;
  $('#hdg').textContent=Math.round(h)+'°';
  $('#hdgDir').textContent=dirName(h)+(hasCompass()?'':' · manuell');
  drawSky(h,W,H,hy,ppd,ppdV,cam);
- $('#panoNote').textContent=cam?(sky?'Linie = berechnete Bergkontur':''):(sky?`Höhen ${EX}-fach überhöht`:'');
+ $('#panoNote').textContent=!sky||!S.horizon?'':cam?'Linie = berechnete Bergkontur':S.ex>1?`Höhen ${nf.format(S.ex)}-fach überhöht`:'';
  const yOf=it=>it.ang!=null?hy-it.ang*ppdV:hy;
  const vis=inView(h).map(it=>({it,rel:adiff(it.b,h)}));
  vis.sort((a,b)=>b.it.w/Math.sqrt(b.it.d/1000+.5)-a.it.w/Math.sqrt(a.it.d/1000+.5));
  let hidden=0,html='';
  if(cam){
-  const placed=[];
+  const placed=[],lab=!!S.camLabels;
   for(const v of vis){
-   const it=v.it,x=W/2+v.rel*ppd,py=yOf(it);let y=null;
-   for(let l=0;l<6;l++){const yy=py-26-l*42;if(placed.every(([a,b])=>Math.abs(a-x)>40||Math.abs(b-yy)>40)){y=yy;break}}
+   const it=v.it,x=W/2+v.rel*ppd,py=yOf(it),bw=lab?Math.min(200,it.name.length*7+70):40,bh=lab?26:40;let y=null;
+   for(let l=0;l<7;l++){
+    const yy=py-(lab?22:26)-l*(bh+4),bx=[x-bw/2,x+bw/2,yy-bh/2,yy+bh/2];
+    if(placed.every(b=>bx[1]<b[0]||bx[0]>b[1]||bx[3]<b[2]||bx[2]>b[3])){y=yy;placed.push(bx);break}
+   }
    if(y==null||y<-20||y>H){hidden++;continue}
-   placed.push([x,y]);const c=CATS[it.cat],occ=it.vis===false?' occ':'';
-   html+=`<i class="stem" style="left:${x.toFixed(1)}px;top:${(y+19).toFixed(1)}px;height:${Math.max(0,py-y-19).toFixed(1)}px"></i><i class="dot" style="left:${x.toFixed(1)}px;top:${py.toFixed(1)}px"></i>`+
-    `<button class="ico${occ}" data-i="${items.indexOf(it)}" style="left:${x.toFixed(1)}px;top:${(y-19).toFixed(1)}px;--c:${c.c}" aria-label="${esc(it.name)}"><svg><use href="#i-${it.cat}"/></svg></button>`;
+   const c=CATS[it.cat],occ=it.vis===false?' occ':'',X=x.toFixed(1);
+   html+=`<i class="stem" style="left:${X}px;top:${(y+bh/2).toFixed(1)}px;height:${Math.max(0,py-y-bh/2).toFixed(1)}px"></i><i class="dot" style="left:${X}px;top:${py.toFixed(1)}px"></i>`;
+   html+=lab?`<button class="mk${occ}" data-i="${items.indexOf(it)}" style="left:${X}px;top:${(y-bh/2).toFixed(1)}px;--c:${c.c}"><svg><use href="#i-${it.cat}"/></svg><span class="nm">${esc(it.name)}</span><span class="ds">${fmtD(it.d)}</span></button>`
+    :`<button class="ico${occ}" data-i="${items.indexOf(it)}" style="left:${X}px;top:${(y-bh/2).toFixed(1)}px;--c:${c.c}" aria-label="${esc(it.name)}"><svg><use href="#i-${it.cat}"/></svg></button>`;
   }
  }else{
   let top=hy;if(sky)for(let x=0;x<=W;x+=6)top=Math.min(top,hy-skyAt(h+(x-W/2)/ppd,BANDS.length-1)*ppdV);
@@ -577,9 +626,9 @@ function initMap(){
  if(!window.L){$('#mapNote').textContent='Karte konnte nicht geladen werden (keine Internetverbindung?).';return}
  map=L.map('map',{zoomControl:true}).setView([51.2,10.4],6);
  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap-Mitwirkende'}).addTo(map);
- coneL=L.polygon([[0,0]],{color:'#ec4a2c',weight:1.5,fillColor:'#ec4a2c',fillOpacity:.15,interactive:false}).addTo(map);
+ coneL=L.polygon([[0,0]],{color:TH().sig,weight:1.5,fillColor:TH().sig,fillOpacity:.15,interactive:false}).addTo(map);
  poiLayer=L.layerGroup().addTo(map);
- meM=L.circleMarker([0,0],{radius:8,color:'#fff',weight:3,fillColor:'#ec4a2c',fillOpacity:1,interactive:false});
+ meM=L.circleMarker([0,0],{radius:8,color:'#fff',weight:3,fillColor:TH().sig,fillOpacity:1,interactive:false});
 }
 function mapPos(){
  if(!map||!pos)return;
@@ -660,7 +709,7 @@ sheet.addEventListener('click',e=>{
  }
 });
 addEventListener('keydown',e=>{
- if(e.key==='Escape')sheet.hidden=true;
+ if(e.key==='Escape'){sheet.hidden=true;setSheet.hidden=true}
  if(!sheet.hidden||e.target.matches('input,select'))return;
  if(e.key==='ArrowLeft'){manualH=norm(manualH-5);dirty=true}
  if(e.key==='ArrowRight'){manualH=norm(manualH+5);dirty=true}
@@ -682,6 +731,34 @@ pano.addEventListener('pointermove',e=>{
  if(Math.abs(dx)>3){dragMoved=true;manualH=norm(manualH-dx/pano.clientWidth*S.fov);dragX=e.clientX;dirty=true}
 });
 addEventListener('pointerup',()=>{dragX=null;setTimeout(()=>dragMoved=false,0)});
+
+/* ---------- Einstellungen ---------- */
+function applyTheme(){
+ const T=TH(),r=document.documentElement.style;
+ r.setProperty('--deep',T.deep);r.setProperty('--green',T.prim);r.setProperty('--sig',T.sig);
+ T.sky.forEach((c,i)=>r.setProperty('--sky'+(i+1),c));
+ if(S.mode==='auto')delete document.documentElement.dataset.mode;else document.documentElement.dataset.mode=S.mode;
+ document.querySelector('meta[name=theme-color]').setAttribute('content',T.deep);
+ if(coneL)coneL.setStyle({color:T.sig,fillColor:T.sig});if(meM)meM.setStyle({fillColor:T.sig});
+ dirty=true;
+}
+const setSheet=$('#setSheet');
+function syncSettings(){
+ $('#optHorizon').checked=!!S.horizon;$('#optRidges').checked=!!S.ridges;$('#optCamLabels').checked=!!S.camLabels;
+ $('#optRidges').disabled=!S.horizon;$('#optEx').value=S.ex;$('#exOut').textContent=nf.format(S.ex)+'×';
+ $('#swatches').innerHTML=Object.entries(THEMES).map(([k,T])=>`<button type="button" class="swatch${S.theme===k?' on':''}" data-theme="${k}" aria-pressed="${S.theme===k}"><i style="background:linear-gradient(90deg,${T.sky[0]} 0 34%,${T.prim} 34% 67%,${T.sig} 67%)"></i>${T.n}</button>`).join('');
+ document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.mode===S.mode));
+}
+$('#gear').addEventListener('click',()=>{syncSettings();setSheet.hidden=false;$('#setClose').focus()});
+$('#setClose').addEventListener('click',()=>setSheet.hidden=true);
+setSheet.addEventListener('click',e=>{
+ if(e.target===setSheet){setSheet.hidden=true;return}
+ const sw=e.target.closest('[data-theme]');if(sw){S.theme=sw.dataset.theme;save();applyTheme();syncSettings();return}
+ const md=e.target.closest('#modeSeg [data-mode]');if(md){S.mode=md.dataset.mode;save();applyTheme();syncSettings()}
+});
+[['optHorizon','horizon'],['optRidges','ridges'],['optCamLabels','camLabels']].forEach(([id,k])=>
+ $('#'+id).addEventListener('change',e=>{S[k]=e.target.checked?1:0;save();syncSettings();dirty=true}));
+$('#optEx').addEventListener('input',e=>{S.ex=+e.target.value;$('#exOut').textContent=nf.format(S.ex)+'×';save();dirty=true});
 
 /* ---------- Bedienung ---------- */
 const fov=$('#fov'),rad=$('#rad');
@@ -714,7 +791,7 @@ $('#demo').addEventListener('click',()=>{
  toast('Demo: Brocken im Harz. Wische über das Panorama zum Drehen.');
 });
 addEventListener('resize',()=>dirty=true);
-drawCalib();initMap();requestAnimationFrame(loop);
+applyTheme();drawCalib();initMap();requestAnimationFrame(loop);
 }
 </script>
 </body>
