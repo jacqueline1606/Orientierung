@@ -208,8 +208,8 @@ footer a{color:inherit}
  <label class="sw"><span>Bergkontur anzeigen<small>Berechnete Horizontlinie im Panorama und im Kamerabild</small></span><input type="checkbox" id="optHorizon"></label>
  <label class="sw"><span>Nähere Bergketten<small>Zusätzliche Linien für Hügel und Höhenzüge im Vordergrund</small></span><input type="checkbox" id="optRidges"></label>
  <label class="rg"><span>Berge überhöhen<small>Nur in der Ansicht ohne Kamera</small></span><output id="exOut"></output><input type="range" id="optEx" min="1" max="4" step="0.5"></label>
- <h4>Kamerabild</h4>
- <label class="sw"><span>Beschriftung der Ziele<small>Aus: nur Symbole – antippen zeigt die Infos</small></span><input type="checkbox" id="optCamLabels"></label>
+ <h4>Ziele</h4>
+ <label class="sw"><span>Beschriftung der Ziele<small>Im Panorama und im Kamerabild. Aus: nur Symbole – antippen zeigt die Infos</small></span><input type="checkbox" id="optCamLabels"></label>
  <h4>Farbschema</h4>
  <div class="swatches" id="swatches"></div>
  <h4>Hell oder dunkel</h4>
@@ -558,7 +558,7 @@ function drawPano(h){
  const vis=inView(h).map(it=>({it,rel:adiff(it.b,h)}));
  vis.sort((a,b)=>b.it.w/Math.sqrt(b.it.d/1000+.5)-a.it.w/Math.sqrt(a.it.d/1000+.5));
  let hidden=0,html='';
- if(cam){
+ if(cam||!S.camLabels){
   const placed=[],lab=!!S.camLabels;
   for(const v of vis){
    const it=v.it,x=W/2+v.rel*ppd,py=yOf(it),bw=lab?Math.min(200,it.name.length*7+70):40,bh=lab?26:40;let y=null;
