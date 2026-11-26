@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b2e25">
+<title>Peilung – Was liegt vor mir?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: ruhiges Feldinstrument, klar ablesbar draußen
+   IDEA: Peilkompass + Panorama-Tafel an einem Aussichtspunkt
+   PICTURE: Horizont-Panorama mit Peilstrichen, darunter Kompassband
+   COLOUR/TYPE: Tiefgrün, Weiß, Signalrot; Barlow (Schilderschrift)
+   LAYOUT: Panorama oben, Steuerung, Listen, Radar */
+:root{color-scheme:light dark;
+--bg:light-dark(#f2f5f1,#0b1411);--ink:light-dark(#0f1e18,#e6eee8);--muted:light-dark(#566760,#94a79d);
+--line:light-dark(#d3dcd4,#22342c);--card:light-dark(#fff,#12201b);--green:#0d6b52;--deep:#0b2e25;--sig:#ec4a2c}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 Barlow,system-ui,sans-serif;overflow-x:clip;
+padding-bottom:env(safe-area-inset-bottom)}
+button,select,input{font:inherit;color:inherit}
+.top{display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;background:var(--deep);color:#fff;flex-wrap:wrap}
+.brand{font:700 22px/1 "Barlow Condensed",sans-serif;letter-spacing:.02em;margin-right:auto}
+.stat{font-size:13px;padding:4px 9px;border-radius:99px;background:#ffffff1a;white-space:nowrap}
+.stat.ok{background:#1f8f6a}.stat.warn{background:#a8561c}
+.pano{position:relative;height:min(52vh,460px);min-height:300px;overflow:hidden;touch-action:pan-y;user-select:none;
+background:linear-gradient(#0b2e25 0%,#14513f 55%,#2a7a5e 72%,#0a221c 72%,#071713 100%);color:#fff}
+.pano video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+.pano.cam{background:#000}.pano.cam video{display:block}
+.pano.cam .mk{background:#000000b0}
+.readout{position:absolute;top:10px;left:0;right:0;text-align:center;pointer-events:none;z-index:3}
+.readout b{font:700 44px/1 "Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums;text-shadow:0 1px 6px #0008}
+.readout span{display:block;font:600 15px/1.2 Barlow,sans-serif;opacity:.9}
+.centerline{position:absolute;left:50%;top:70px;bottom:0;width:2px;margin-left:-1px;background:var(--sig);z-index:2;opacity:.85;pointer-events:none}
+.centerline::before{content:"";position:absolute;top:-2px;left:-6px;border:7px solid transparent;border-top-color:var(--sig)}
+#marks{position:absolute;inset:0;z-index:2}
+.stem{position:absolute;width:1px;background:#ffffffa0;pointer-events:none}
+.mk{position:absolute;transform:translateX(-50%);display:flex;align-items:center;gap:5px;padding:3px 8px 3px 5px;border:0;border-radius:6px;
+background:#06140fd0;color:#fff;font-size:13px;line-height:1.15;white-space:nowrap;cursor:pointer;border-left:3px solid var(--c);max-width:200px}
+.mk svg{width:16px;height:16px;flex:none;color:var(--c)}
+.mk .nm{overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.mk .ds{opacity:.8;font-variant-numeric:tabular-nums}
+#tape{position:absolute;left:0;right:0;bottom:0;z-index:1;pointer-events:none}
+.hiddenNote{position:absolute;right:8px;bottom:6px;z-index:3;font-size:12px;opacity:.75;pointer-events:none}
+.start{position:absolute;inset:0;z-index:5;display:grid;place-content:center;gap:12px;padding:20px;text-align:center;background:#0b2e25f2}
+.start h1{font:700 34px/1.05 "Barlow Condensed",sans-serif;margin:0;text-wrap:balance}
+.start p{margin:0;max-width:34em;opacity:.9}
+.btn{min-height:44px;padding:10px 18px;border-radius:10px;border:0;background:var(--sig);color:#fff;font-weight:600;cursor:pointer}
+.btn.ghost{background:transparent;border:1px solid currentColor}
+.ctrl{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;padding:12px;border-bottom:1px solid var(--line)}
+.ctrl label{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.ctrl input[type=range]{width:120px;accent-color:var(--green)}
+.ctrl select,.sbtn{min-height:40px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-size:15px;cursor:pointer}
+.sbtn.on{background:var(--green);color:#fff;border-color:var(--green)}
+output{font-variant-numeric:tabular-nums;color:var(--ink);min-width:3ch}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;scrollbar-width:none}
+.chip{flex:none;display:flex;align-items:center;gap:6px;min-height:38px;padding:5px 12px 5px 8px;border-radius:99px;border:1px solid var(--line);background:var(--card);font-size:14px;cursor:pointer;opacity:.5}
+.chip.on{opacity:1;border-color:var(--c)}
+.chip svg{width:18px;height:18px;color:var(--c)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:0 24px;padding:0 12px;max-width:1240px;margin:auto}
+h2{font:700 24px/1.1 "Barlow Condensed",sans-serif;margin:18px 0 2px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 8px}
+.list{list-style:none;margin:0;padding:0}
+.list button{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:2px 10px;align-items:center;width:100%;min-height:52px;padding:7px 4px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;cursor:pointer}
+.list .ic{width:26px;height:26px;color:var(--c);grid-row:span 2}
+.list .n{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list .s{grid-column:2;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list .r{grid-column:3;grid-row:1/3;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.list .r b{display:block;font:700 18px/1.1 "Barlow Condensed",sans-serif}
+.list .r small{color:var(--muted);font-size:12px}
+.arrow{width:20px;height:20px;vertical-align:-4px;color:var(--sig);transition:transform .2s}
+.empty{color:var(--muted);padding:12px 0;font-size:15px}
+.radarbox{max-width:360px;margin:6px auto}
+#radar{width:100%;height:auto;display:block}
+footer{padding:20px 12px 28px;color:var(--muted);font-size:13px;max-width:1240px;margin:auto}
+footer a{color:inherit}
+.sheet{position:fixed;inset:0;z-index:20;background:#0007;display:flex;align-items:flex-end;justify-content:center}
+.sheet[hidden]{display:none}
+.sheetCard{background:var(--card);width:min(560px,100%);border-radius:16px 16px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow:auto}
+.sheetCard h3{font:700 28px/1.1 "Barlow Condensed",sans-serif;margin:0 0 4px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:12px 0;font-size:15px}
+.facts dt{color:var(--muted)}.facts dd{margin:0;font-variant-numeric:tabular-nums}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.row a{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);color:inherit;text-decoration:none}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--deep);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:30;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1}
+:focus-visible{outline:3px solid var(--sig);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <symbol id="i-ort" viewBox="0 0 24 24"><path fill="currentColor" d="M3 20V11l5-4 5 4v9H3zm11 0v-7l4-3 4 3v7h-8z"/></symbol>
+ <symbol id="i-berg" viewBox="0 0 24 24"><path fill="currentColor" d="M2 20 9.5 6l3.6 6.6L15.5 9 22 20H2z"/></symbol>
+ <symbol id="i-burg" viewBox="0 0 24 24"><path fill="currentColor" d="M3 21V8h3v2h2V8h3v2h2V8h3v2h2V8h3v13h-7v-5a2 2 0 0 0-4 0v5H3z"/></symbol>
+ <symbol id="i-kirche" viewBox="0 0 24 24"><path fill="currentColor" d="M11 1h2v3h3v2h-3v3l5 4v8h-5v-4a2 2 0 0 0-4 0v4H4v-8l5-4V6H6V4h5z"/></symbol>
+ <symbol id="i-leuchtturm" viewBox="0 0 24 24"><path fill="currentColor" d="M10 3h4l1 3h-6l1-3zm-1 4h6l2 14H7L9 7zM2 6l5 1v1L2 9zm20 0v3l-5-1V7z"/></symbol>
+ <symbol id="i-funk" viewBox="0 0 24 24"><path fill="currentColor" d="M11 8h2l4 14h-2l-1-4h-4l-1 4H7l4-14zm-.5 8h3L12 10.5zM12 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/><path fill="none" stroke="currentColor" stroke-width="1.6" d="M7.5 1.5a6 6 0 0 0 0 5M16.5 1.5a6 6 0 0 1 0 5"/></symbol>
+ <symbol id="i-turm" viewBox="0 0 24 24"><path fill="currentColor" d="M8 2h8v5h-1l1 14H8L9 7H8V2zm2 2v1h4V4z"/></symbol>
+ <symbol id="i-wind" viewBox="0 0 24 24"><path fill="currentColor" d="M11.2 9.5 12 2l.8 7.5zM12.7 11.3l6.6 3.7-7.2-2.4zM11.3 11.9l-6.5 3.8 5.8-4.9zM11.3 12h1.4l.8 10h-3z"/></symbol>
+</svg>
+
+<header class="top">
+ <div class="brand">Peilung</div>
+ <span class="stat" id="gpsStat">GPS –</span>
+ <span class="stat" id="cmpStat">Kompass –</span>
+</header>
+
+<section class="pano" id="pano" aria-label="Panorama in Blickrichtung">
+ <video id="cam" playsinline muted autoplay></video>
+ <div class="readout"><b id="hdg">–</b><span id="hdgDir">Blickrichtung</span></div>
+ <div class="centerline"></div>
+ <div id="marks"></div>
+ <svg id="tape"></svg>
+ <div class="hiddenNote" id="hiddenNote"></div>
+ <div class="start" id="start">
+  <h1>Was liegt vor mir?</h1>
+  <p>Halte das Handy aufrecht vor dich wie beim Fotografieren. Die App zeigt Kirchen, Berge, Burgen, Leuchttürme, Funkmasten und Orte in deiner Blickrichtung – mit Entfernung.</p>
+  <div class="row" style="justify-content:center">
+   <button class="btn" id="go">Standort &amp; Kompass starten</button>
+   <button class="btn ghost" id="demo">Demo (Brocken)</button>
+  </div>
+  <p id="startMsg" style="font-size:14px"></p>
+ </div>
+</section>
+
+<div class="ctrl">
+ <label>Sichtfeld <input type="range" id="fov" min="20" max="120" step="5"><output id="fovOut"></output></label>
+ <label>Umkreis <select id="rad"><option value="5">5 km</option><option value="10">10 km</option><option value="20">20 km</option><option value="30">30 km</option></select></label>
+ <button class="sbtn" id="camBtn" type="button">Kamera</button>
+ <button class="sbtn" id="reload" type="button">Neu laden</button>
+</div>
+<div class="chips" id="chips"></div>
+
+<main class="grid">
+ <section><h2>In Blickrichtung</h2><p class="sub" id="viewSub">Noch keine Daten</p><ul class="list" id="viewList"></ul></section>
+ <section><h2>Nächste Orte</h2><p class="sub">Entfernung Luftlinie, Pfeil zeigt die Richtung</p><ul class="list" id="placeList"></ul></section>
+ <section><h2>Umgebung</h2><p class="sub" id="radarSub">Draufsicht, Blickrichtung oben</p><div class="radarbox"><svg id="radar" viewBox="-112 -112 224 224"></svg></div>
+  <p class="sub" id="calib"></p></section>
+</main>
+
+<footer>Kartendaten © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap-Mitwirkende</a> (ODbL), abgefragt über die Overpass API. Handy-Kompasse zeigen magnetisch Nord und werden durch Metall, Autos oder Hüllen mit Magnet gestört – tippe ein bekanntes Ziel an und wähle „Kompass hierauf kalibrieren“.</footer>
+
+<div class="sheet" id="sheet" hidden><div class="sheetCard" id="sheetCard" role="dialog" aria-modal="true"></div></div>
+<div id="toast" role="status"></div>
+
+<script>
+{
+const $=s=>document.querySelector(s);
+const D=Math.PI/180;
+const CATS={
+ ort:{n:'Orte',s:'Ort',c:'#f2f2f2',cl:'#3b4a44'},
+ berg:{n:'Berge',s:'Berg',c:'#d9934a'},
+ burg:{n:'Burgen & Schlösser',s:'Burg/Schloss',c:'#ef6a3a'},
+ kirche:{n:'Kirchen',s:'Kirche',c:'#a993ff'},
+ leuchtturm:{n:'Leuchttürme',s:'Leuchtturm',c:'#ff4d6d'},
+ funk:{n:'Funkmasten',s:'Funkmast/-turm',c:'#3cc8dc'},
+ turm:{n:'Türme',s:'Turm',c:'#c8cf55'},
+ wind:{n:'Windräder',s:'Windrad',c:'#8fd19e'}
+};
+const DIRS=['N','NNO','NO','ONO','O','OSO','SO','SSO','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+
+let S={fov:60,rad:10,off:0,cats:{ort:1,berg:1,burg:1,kirche:1,leuchtturm:1,funk:1,turm:1,wind:0}};
+try{const s=JSON.parse(localStorage.getItem('peilung:set')||'null');if(s)S={...S,...s,cats:{...S.cats,...(s.cats||{})}}}catch(e){}
+const save=()=>{try{localStorage.setItem('peilung:set',JSON.stringify(S))}catch(e){}};
+
+let pos=null,items=[],lastLoad=null,loading=false,dirty=true;
+let sm=null,lastEvt=0,absolute=true,manualH=0,compassOn=false,stream=null;
+
+const norm=a=>((a%360)+360)%360;
+const adiff=(a,b)=>((a-b+540)%360)-180;
+const dirName=b=>DIRS[Math.round(norm(b)/22.5)%16];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nf=new Intl.NumberFormat('de-DE',{maximumFractionDigits:1});
+const fmtD=m=>m<1000?Math.round(m/10)*10+' m':(m<10000?nf.format(m/1000):Math.round(m/1000))+' km';
+function dist(a,b){const R=6371e3,p1=a.lat*D,p2=b.lat*D,dp=(b.lat-a.lat)*D,dl=(b.lon-a.lon)*D;
+ const x=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+function bearing(a,b){const p1=a.lat*D,p2=b.lat*D,dl=(b.lon-a.lon)*D;
+ return norm(Math.atan2(Math.sin(dl)*Math.cos(p2),Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl))/D)}
+const scrAngle=()=>(screen.orientation&&screen.orientation.angle)||window.orientation||0;
+const toastEl=$('#toast');let tt;
+function toast(t){toastEl.textContent=t;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>toastEl.classList.remove('show'),3200)}
+function stat(el,txt,cls){el.textContent=txt;el.className='stat'+(cls?' '+cls:'')}
+
+/* ---------- Kompass ---------- */
+const hasCompass=()=>compassOn&&Date.now()-lastEvt<3000;
+const heading=()=>hasCompass()&&sm!=null?norm(sm+S.off):manualH;
+function compHeading(a,b,g){
+ const cX=Math.cos(b*D),cY=Math.cos(g*D),cZ=Math.cos(a*D),sX=Math.sin(b*D),sY=Math.sin(g*D),sZ=Math.sin(a*D);
+ const m13=cY*sZ*sX+cZ*sY,m23=sZ*sY-cZ*cY*sX,m12=-cX*sZ,m22=cZ*cX;
+ if(Math.hypot(m13,m23)>Math.hypot(m12,m22))return norm(Math.atan2(-m13,-m23)/D); // Rückseite (Handy aufrecht)
+ return norm(Math.atan2(m12,m22)/D+scrAngle()); // Oberkante (Handy flach)
+}
+function onOri(e){
+ let h=null;
+ if(e.webkitCompassHeading!=null&&!isNaN(e.webkitCompassHeading)){
+  h=e.webkitCompassHeading+(Math.abs(e.beta||0)<45?scrAngle():0);absolute=true;
+ }else if(e.alpha!=null){
+  absolute=e.absolute||e.type==='deviceorientationabsolute';
+  h=compHeading(e.alpha,e.beta||0,e.gamma||0);
+ }
+ if(h==null)return;
+ h=norm(h);
+ if(sm==null)sm=h;else sm=norm(sm+adiff(h,sm)*0.22);
+ if(!compassOn||Date.now()-lastEvt>3000)stat($('#cmpStat'),absolute?'Kompass aktiv':'Kompass relativ – kalibrieren',absolute?'ok':'warn');
+ compassOn=true;lastEvt=Date.now();
+}
+function startCompass(){
+ const add=()=>{if('ondeviceorientationabsolute' in window)addEventListener('deviceorientationabsolute',onOri,true);
+  else addEventListener('deviceorientation',onOri,true)};
+ if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+  DeviceOrientationEvent.requestPermission().then(r=>{if(r==='granted')add();else stat($('#cmpStat'),'Kompass verweigert','warn')})
+   .catch(()=>stat($('#cmpStat'),'Kompass nicht verfügbar','warn'));
+ }else add();
+ setTimeout(()=>{if(!compassOn)stat($('#cmpStat'),'Kein Kompass – wischen zum Drehen','warn')},3000);
+}
+
+/* ---------- Standort ---------- */
+function startGeo(){
+ if(!navigator.geolocation){$('#startMsg').textContent='Dieses Gerät liefert keinen Standort.';return false}
+ stat($('#gpsStat'),'GPS sucht…');
+ navigator.geolocation.watchPosition(p=>{
+  setPos({lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy,alt:p.coords.altitude});
+ },err=>{
+  stat($('#gpsStat'),'GPS: '+(err.code===1?'verweigert':'kein Signal'),'warn');
+  if(err.code===1){$('#start').hidden=false;$('#startMsg').textContent='Standortzugriff wurde verweigert. Erlaube ihn in den Browser-Einstellungen oder nutze die Demo.'}
+ },{enableHighAccuracy:true,maximumAge:5000,timeout:30000});
+ return true;
+}
+function setPos(p){
+ pos=p;
+ stat($('#gpsStat'),p.acc!=null?'GPS ±'+Math.round(p.acc)+' m':'Demo-Standort','ok');
+ for(const it of items){it.d=dist(pos,it);it.b=bearing(pos,it)}
+ dirty=true;
+ const need=!lastLoad||lastLoad.rad!==S.rad||dist(lastLoad,pos)>Math.max(1500,S.rad*250);
+ if(need)loadData();
+}
+
+/* ---------- Daten (OpenStreetMap via Overpass) ---------- */
+function query(lat,lon){
+ const r=S.rad*1000,r2=Math.min(Math.round(r*2.5),60000),a=(x)=>`(around:${x},${lat.toFixed(5)},${lon.toFixed(5)})`;
+ return `[out:json][timeout:50];(
+nwr["amenity"="place_of_worship"]${a(r)};
+nwr["building"~"^(church|cathedral|chapel)$"]${a(r)};
+nwr["historic"~"^(castle|fort|tower|city_gate)$"]${a(r)};
+nwr["man_made"~"^(mast|tower|water_tower|chimney)$"]${a(r)};
+nwr["man_made"="tower"]["tower:type"="communication"]${a(r2)};
+nwr["historic"="castle"]${a(r2)};
+nwr["man_made"="lighthouse"]${a(r2)};
+nwr["power"="generator"]["generator:source"="wind"]${a(r)};
+node["natural"~"^(peak|volcano)$"]["name"]${a(r2)};
+node["place"~"^(city|town)$"]${a(r2)};
+node["place"="village"]${a(r)};
+);out center tags;`;
+}
+function classify(t){
+ const h=parseFloat(t.height)||0,tt=t['tower:type'];
+ if(t.place)return /^(city|town|village)$/.test(t.place)?'ort':null;
+ if(t.natural==='peak'||t.natural==='volcano')return 'berg';
+ if(t.man_made==='lighthouse')return 'leuchtturm';
+ if(t.historic==='castle'||t.historic==='fort')return 'burg';
+ if(t.power==='generator'&&t['generator:source']==='wind')return 'wind';
+ if(t.amenity==='place_of_worship'||/^(church|cathedral|chapel)$/.test(t.building||''))return 'kirche';
+ if(t.man_made==='mast')return (h>=40||t.name)?'funk':null;
+ if(t.man_made==='tower'){
+  if(tt==='communication')return 'funk';
+  if(tt==='observation'||tt==='defensive')return 'turm';
+  return (h>=30||t.name)?'turm':null;
+ }
+ if(t.man_made==='water_tower')return 'turm';
+ if(t.man_made==='chimney')return (h>=60||t.name)?'turm':null;
+ if(t.historic==='tower'||t.historic==='city_gate')return t.name?'turm':null;
+ return null;
+}
+function weight(cat,t,named){
+ const h=parseFloat(t.height)||0;
+ switch(cat){
+  case 'ort':return t.place==='city'?10:t.place==='town'?7:4;
+  case 'berg':return 6;
+  case 'leuchtturm':return 8;
+  case 'burg':return named?6:3;
+  case 'kirche':return !named?2:/dom|münster|kathedrale|basilika|kloster|abtei/i.test(t.name||'')||t.building==='cathedral'?7:4;
+  case 'funk':return 5+(h>=150?3:h>=80?1:0);
+  case 'turm':return t['tower:type']==='observation'?5:4;
+ }
+ return 2;
+}
+function build(els){
+ const out=[],winds=[],seen=new Map();
+ for(const e of els){
+  const t=e.tags||{},lat=e.lat??(e.center&&e.center.lat),lon=e.lon??(e.center&&e.center.lon);
+  if(lat==null)continue;
+  const cat=classify(t);if(!cat)continue;
+  if(cat==='wind'){winds.push({lat,lon});continue}
+  const name=t['name:de']||t.name||'';
+  if(!name&&(cat==='berg'||cat==='ort'))continue;
+  if(cat==='kirche'&&!name&&e.type==='node'&&!t.building)continue;
+  const it={id:e.type+'/'+e.id,cat,name:name||CATS[cat].s,named:!!name,lat,lon,t,w:weight(cat,t,!!name)};
+  if(name){const k=cat+'|'+name,prev=seen.get(k)||[];
+   if(prev.some(p=>dist(p,it)<400))continue;prev.push(it);seen.set(k,prev)}
+  out.push(it);
+ }
+ const used=new Array(winds.length).fill(false);
+ for(let i=0;i<winds.length;i++){
+  if(used[i])continue;const grp=[winds[i]];used[i]=true;
+  for(let k=0;k<grp.length;k++)for(let j=0;j<winds.length;j++)if(!used[j]&&dist(grp[k],winds[j])<1200){used[j]=true;grp.push(winds[j])}
+  const lat=grp.reduce((s,p)=>s+p.lat,0)/grp.length,lon=grp.reduce((s,p)=>s+p.lon,0)/grp.length;
+  out.push({id:'wind/'+i,cat:'wind',name:grp.length>1?`Windpark (${grp.length} Anlagen)`:'Windrad',named:false,lat,lon,t:{},w:2+Math.min(3,grp.length/5),n:grp.length});
+ }
+ return out;
+}
+async function loadData(){
+ if(!pos||loading)return;
+ const key='peilung:data';
+ try{const c=JSON.parse(localStorage.getItem(key)||'null');
+  if(c&&c.rad===S.rad&&Date.now()-c.time<7*864e5&&dist(c,pos)<Math.max(1500,S.rad*250)){
+   useData(c.items,c);return}}catch(e){}
+ loading=true;$('#viewSub').textContent='Lade Umgebung aus OpenStreetMap…';
+ const q='data='+encodeURIComponent(query(pos.lat,pos.lon));let ok=false;
+ for(const url of ENDPOINTS){
+  try{
+   const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),55000);
+   const r=await fetch(url,{method:'POST',body:q,headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctl.signal});
+   clearTimeout(tm);if(!r.ok)throw new Error(r.status);
+   const j=await r.json();const its=build(j.elements||[]);
+   const meta={lat:pos.lat,lon:pos.lon,rad:S.rad,time:Date.now()};
+   try{localStorage.setItem(key,JSON.stringify({...meta,items:its}))}catch(e){}
+   useData(its,meta);ok=true;break;
+  }catch(e){}
+ }
+ loading=false;
+ if(!ok){toast('Daten konnten nicht geladen werden – Internetverbindung prüfen und „Neu laden“ tippen.');$('#viewSub').textContent='Keine Daten geladen';}
+}
+function useData(its,meta){
+ items=its;lastLoad={lat:meta.lat,lon:meta.lon,rad:meta.rad};
+ for(const it of items){it.d=dist(pos,it);it.b=bearing(pos,it)}
+ dirty=true;buildRadar();
+}
+
+/* ---------- Darstellung ---------- */
+const pano=$('#pano'),marks=$('#marks'),tape=$('#tape');
+const shown=()=>items.filter(it=>S.cats[it.cat]&&it.d!=null);
+function inView(h){const f=S.fov/2;return shown().filter(it=>Math.abs(adiff(it.b,h))<=f)}
+function drawPano(h){
+ const W=pano.clientWidth,H=pano.clientHeight,hy=Math.round(H*0.72),laneH=30,maxL=Math.max(1,Math.floor((hy-84)/laneH));
+ $('#hdg').textContent=Math.round(h)+'°';
+ $('#hdgDir').textContent=dirName(h)+(hasCompass()?'':' · manuell');
+ const vis=inView(h).map(it=>({it,rel:adiff(it.b,h)}));
+ vis.sort((a,b)=>b.it.w/Math.sqrt(b.it.d/1000+.5)-a.it.w/Math.sqrt(a.it.d/1000+.5));
+ const lanes=Array.from({length:maxL},()=>[]);let hidden=0,html='';
+ for(const v of vis){
+  const x=W/2+v.rel/S.fov*W,lw=Math.min(200,v.it.name.length*7+70),x0=x-lw/2,x1=x+lw/2;
+  let l=lanes.findIndex(L=>L.every(([a,b])=>x1<a-4||x0>b+4));
+  if(l<0){hidden++;continue}
+  lanes[l].push([x0,x1]);
+  const c=CATS[v.it.cat].c,bot=H-hy+10+l*laneH,idx=items.indexOf(v.it);
+  html+=`<i class="stem" style="left:${x.toFixed(1)}px;bottom:${H-hy}px;height:${10+l*laneH}px"></i>`+
+   `<button class="mk" data-i="${idx}" style="left:${x.toFixed(1)}px;bottom:${bot}px;--c:${c}"><svg><use href="#i-${v.it.cat}"/></svg><span class="nm">${esc(v.it.name)}</span><span class="ds">${fmtD(v.it.d)}</span></button>`;
+ }
+ marks.innerHTML=html;
+ $('#hiddenNote').textContent=hidden?`+${hidden} weitere (Liste unten)`:'';
+ // Kompassband
+ const th=H-hy;tape.setAttribute('width',W);tape.setAttribute('height',th);tape.style.height=th+'px';
+ let s='',step=S.fov>80?30:15;
+ for(let d=Math.floor((h-S.fov/2-10)/5)*5;d<=h+S.fov/2+10;d+=5){
+  const x=W/2+(d-h)/S.fov*W,nd=norm(d),card=nd%45===0;
+  s+=`<line x1="${x}" x2="${x}" y1="0" y2="${card?16:nd%15===0?11:6}" stroke="#fff" stroke-opacity="${card?1:.6}" stroke-width="${card?2:1}"/>`;
+  if(card)s+=`<text x="${x}" y="34" fill="${nd===0?'#ff8a70':'#fff'}" font-size="17" font-weight="700" text-anchor="middle" font-family="Barlow Condensed,sans-serif">${DIRS[nd/22.5]}</text>`;
+  else if(nd%step===0)s+=`<text x="${x}" y="30" fill="#fff" fill-opacity=".75" font-size="12" text-anchor="middle">${nd}</text>`;
+ }
+ tape.innerHTML=s;
+}
+function rowHTML(it,right){
+ const c=CATS[it.cat];
+ return `<li><button data-i="${items.indexOf(it)}" style="--c:${c.cl||c.c}"><svg class="ic"><use href="#i-${it.cat}"/></svg><span class="n">${esc(it.name)}</span><span class="s">${esc(subText(it))}</span><span class="r">${right}</span></button></li>`;
+}
+function subText(it){
+ const t=it.t,p=[CATS[it.cat].s];
+ if(it.cat==='ort'){p[0]=t.place==='city'?'Stadt':t.place==='town'?'Kleinstadt':'Dorf';if(t.population)p.push(Number(t.population).toLocaleString('de-DE')+' Einw.')}
+ if(t.ele)p.push(Math.round(parseFloat(t.ele))+' m ü. NN');
+ if(t.height)p.push(Math.round(parseFloat(t.height))+' m hoch');
+ if(it.cat==='kirche'&&t.denomination)p.push({catholic:'kath.',roman_catholic:'kath.',protestant:'ev.',evangelical:'ev.',lutheran:'ev.-luth.'}[t.denomination]||'');
+ return p.filter(Boolean).join(' · ');
+}
+function drawLists(h){
+ if(!items.length){$('#viewList').innerHTML='';$('#placeList').innerHTML='';return}
+ const v=inView(h).sort((a,b)=>a.d-b.d).slice(0,40);
+ $('#viewSub').textContent=`${v.length} Ziele im Sichtfeld von ${S.fov}° um ${Math.round(h)}° ${dirName(h)}`;
+ $('#viewList').innerHTML=v.length?v.map(it=>{const r=adiff(it.b,h);
+  return rowHTML(it,`<b>${fmtD(it.d)}</b><small>${Math.abs(r)<1.5?'genau voraus':Math.round(Math.abs(r))+'° '+(r<0?'links':'rechts')}</small>`)}).join('')
+  :'<li class="empty">Nichts Markantes in dieser Richtung. Dreh dich oder vergrößere Sichtfeld/Umkreis.</li>';
+ const pl=items.filter(it=>it.cat==='ort'&&it.d!=null).sort((a,b)=>a.d-b.d).slice(0,12);
+ $('#placeList').innerHTML=pl.length?pl.map(it=>rowHTML(it,`<b>${fmtD(it.d)}</b><small><svg class="arrow" viewBox="0 0 24 24" style="transform:rotate(${(adiff(it.b,h)).toFixed(0)}deg)"><path fill="currentColor" d="M12 2 19 20 12 16 5 20z"/></svg> ${dirName(it.b)} ${Math.round(it.b)}°</small>`)).join('')
+  :'<li class="empty">Noch keine Orte geladen.</li>';
+}
+const radar=$('#radar');
+function buildRadar(){
+ const R=S.rad*1000*2.5;let g='';
+ for(const it of shown().sort((a,b)=>a.w-b.w)){
+  const r=Math.min(1,it.d/R)*100,x=Math.sin(it.b*D)*r,y=-Math.cos(it.b*D)*r,c=CATS[it.cat];
+  g+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(1.6+it.w/3).toFixed(1)}" fill="${c.cl||c.c}" stroke="var(--card)" stroke-width=".8"/>`;
+ }
+ const ring=(f,l)=>`<circle r="${f*100}" fill="none" stroke="var(--line)" stroke-width="1"/><text x="3" y="${-f*100+9}" font-size="8" fill="var(--muted)">${l}</text>`;
+ radar.innerHTML=`<path id="cone" fill="#ec4a2c22" stroke="#ec4a2c" stroke-width="1"/>
+ <g id="rg">${ring(1,fmtD(R))}${ring(2/3,fmtD(R*2/3))}${ring(1/3,fmtD(R/3))}${g}</g>
+ <circle r="4" fill="var(--ink)"/><g id="nmark"><circle r="8" fill="var(--sig)"/><text y="3.5" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">N</text></g>`;
+ $('#radarSub').textContent=`Draufsicht bis ${fmtD(R)}, Blickrichtung oben`;
+ drawCone();
+}
+function drawCone(){
+ const c=$('#cone');if(!c)return;const f=S.fov/2*D;
+ c.setAttribute('d',`M0 0L${(Math.sin(-f)*104).toFixed(1)} ${(-Math.cos(f)*104).toFixed(1)}A104 104 0 0 1 ${(Math.sin(f)*104).toFixed(1)} ${(-Math.cos(f)*104).toFixed(1)}Z`);
+}
+function rotRadar(h){
+ const g=$('#rg'),n=$('#nmark');if(!g)return;
+ g.setAttribute('transform',`rotate(${(-h).toFixed(1)})`);
+ n.setAttribute('transform',`translate(${(Math.sin(-h*D)*104).toFixed(1)} ${(-Math.cos(-h*D)*104).toFixed(1)})`);
+}
+function drawCalib(){
+ $('#calib').innerHTML=S.off?`Kompass-Korrektur: ${S.off>0?'+':''}${Math.round(S.off)}° <button class="sbtn" id="resetOff" type="button">Zurücksetzen</button>`:'';
+}
+
+let lastH=null,lastListH=null,lastList=0;
+function loop(){
+ const h=heading();
+ if(dirty||lastH==null||Math.abs(adiff(h,lastH))>0.3){drawPano(h);rotRadar(h);lastH=h}
+ if(dirty||lastListH==null||(Math.abs(adiff(h,lastListH))>2&&Date.now()-lastList>400)){drawLists(h);lastListH=h;lastList=Date.now()}
+ dirty=false;requestAnimationFrame(loop);
+}
+
+/* ---------- Detail ---------- */
+const sheet=$('#sheet'),card=$('#sheetCard');let cur=null;
+function openSheet(i){
+ const it=items[i];if(!it)return;cur=it;const t=it.t,h=heading(),r=adiff(it.b,h);
+ const f=[['Entfernung',fmtD(it.d)+' Luftlinie'],['Richtung',`${Math.round(it.b)}° ${dirName(it.b)} · ${Math.abs(r)<1.5?'genau voraus':Math.round(Math.abs(r))+'° '+(r<0?'links':'rechts')}`]];
+ if(t.ele){f.push(['Höhe',Math.round(parseFloat(t.ele))+' m ü. NN']);
+  if(pos&&pos.alt!=null){const a=Math.atan2(parseFloat(t.ele)-pos.alt,it.d)/D;f.push(['Höhenwinkel',nf.format(a)+'° über/unter Augenhöhe'])}}
+ if(t.height)f.push(['Bauhöhe',Math.round(parseFloat(t.height))+' m']);
+ if(t.population)f.push(['Einwohner',Number(t.population).toLocaleString('de-DE')]);
+ if(it.n)f.push(['Anlagen',String(it.n)]);
+ let links='';
+ if(!it.id.startsWith('wind/'))links+=`<a href="https://www.openstreetmap.org/${esc(it.id)}" target="_blank" rel="noopener">OpenStreetMap</a>`;
+ const wp=(t.wikipedia||'').match(/^([a-z-]+):(.+)$/);
+ if(wp)links+=`<a href="https://${esc(wp[1])}.wikipedia.org/wiki/${encodeURIComponent(wp[2].replace(/ /g,'_'))}" target="_blank" rel="noopener">Wikipedia</a>`;
+ if(/^https?:\/\//.test(t.website||''))links+=`<a href="${esc(t.website)}" target="_blank" rel="noopener">Website</a>`;
+ card.innerHTML=`<h3>${esc(it.name)}</h3><div class="sub">${esc(subText(it))}</div>
+ <dl class="facts">${f.map(([a,b])=>`<dt>${a}</dt><dd>${esc(b)}</dd>`).join('')}</dl>
+ <div class="row">${links}</div>
+ <div class="row"><button class="btn" id="calBtn" type="button">Ich schaue genau darauf – Kompass kalibrieren</button><button class="btn ghost" id="closeBtn" type="button">Schließen</button></div>`;
+ sheet.hidden=false;$('#closeBtn').focus();
+}
+sheet.addEventListener('click',e=>{
+ if(e.target===sheet||e.target.id==='closeBtn'){sheet.hidden=true;return}
+ if(e.target.id==='calBtn'&&cur){
+  if(!hasCompass()||sm==null){manualH=cur.b;toast('Blickrichtung auf '+cur.name+' gesetzt');}
+  else{S.off=Math.round(adiff(cur.b,sm));save();drawCalib();toast(`Kalibriert auf ${cur.name} (Korrektur ${S.off>0?'+':''}${S.off}°)`);}
+  dirty=true;sheet.hidden=true;
+ }
+});
+addEventListener('keydown',e=>{
+ if(e.key==='Escape')sheet.hidden=true;
+ if(!sheet.hidden||e.target.matches('input,select'))return;
+ if(e.key==='ArrowLeft'){manualH=norm(manualH-5);dirty=true}
+ if(e.key==='ArrowRight'){manualH=norm(manualH+5);dirty=true}
+});
+document.addEventListener('click',e=>{
+ if(e.target.closest('#resetOff')){S.off=0;save();drawCalib();dirty=true;return}
+ const b=e.target.closest('[data-i]');if(b&&!dragMoved)openSheet(+b.dataset.i);
+});
+
+/* Wischen zum Drehen, wenn kein Kompass */
+let dragX=null,dragMoved=false;
+pano.addEventListener('pointerdown',e=>{dragX=e.clientX;dragMoved=false});
+pano.addEventListener('pointermove',e=>{
+ if(dragX==null||hasCompass())return;const dx=e.clientX-dragX;
+ if(Math.abs(dx)>3){dragMoved=true;manualH=norm(manualH-dx/pano.clientWidth*S.fov);dragX=e.clientX;dirty=true}
+});
+addEventListener('pointerup',()=>{dragX=null;setTimeout(()=>dragMoved=false,0)});
+
+/* ---------- Bedienung ---------- */
+const fov=$('#fov'),rad=$('#rad');
+fov.value=S.fov;$('#fovOut').textContent=S.fov+'°';rad.value=S.rad;
+fov.addEventListener('input',()=>{S.fov=+fov.value;$('#fovOut').textContent=S.fov+'°';save();drawCone();dirty=true});
+rad.addEventListener('change',()=>{S.rad=+rad.value;save();if(pos)loadData()});
+$('#reload').addEventListener('click',()=>{try{localStorage.removeItem('peilung:data')}catch(e){}lastLoad=null;if(pos)loadData();else toast('Noch kein Standort')});
+$('#chips').innerHTML=Object.entries(CATS).map(([k,c])=>`<button class="chip${S.cats[k]?' on':''}" data-cat="${k}" style="--c:${c.cl||c.c}" type="button" aria-pressed="${!!S.cats[k]}"><svg><use href="#i-${k}"/></svg>${c.n}</button>`).join('');
+$('#chips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;const k=b.dataset.cat;
+ S.cats[k]=S.cats[k]?0:1;b.classList.toggle('on',!!S.cats[k]);b.setAttribute('aria-pressed',!!S.cats[k]);save();buildRadar();dirty=true});
+$('#camBtn').addEventListener('click',async()=>{
+ const v=$('#cam'),b=$('#camBtn');
+ if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;pano.classList.remove('cam');b.classList.remove('on');return}
+ try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+  v.srcObject=stream;await v.play().catch(()=>{});pano.classList.add('cam');b.classList.add('on');
+  if(S.fov>70){S.fov=55;fov.value=55;$('#fovOut').textContent='55°';drawCone();dirty=true}
+ }catch(e){toast('Kamera nicht verfügbar')}
+});
+async function wake(){try{if(navigator.wakeLock)await navigator.wakeLock.request('screen')}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&compassOn)wake()});
+$('#go').addEventListener('click',()=>{
+ startCompass();
+ if(!window.isSecureContext)$('#startMsg').textContent='Hinweis: Standort und Kompass funktionieren nur, wenn die Seite über https:// geöffnet wird.';
+ if(startGeo())$('#start').hidden=true;
+ wake();
+});
+$('#demo').addEventListener('click',()=>{
+ $('#start').hidden=true;startCompass();
+ setPos({lat:51.7991,lon:10.6156,acc:null,alt:1141});manualH=200;
+ toast('Demo: Brocken im Harz. Wische über das Panorama zum Drehen.');
+});
+addEventListener('resize',()=>dirty=true);
+drawCalib();buildRadar();requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>

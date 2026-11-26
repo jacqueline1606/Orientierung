@@ -1,0 +1,60 @@
+plugins {
+    id 'com.android.application'
+}
+
+def buildNo = (System.getenv('BUILD_NUMBER') ?: '1').toInteger()
+
+android {
+    namespace 'de.peilung.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'de.peilung.app'
+        minSdk 26
+        targetSdk 34
+        versionCode buildNo
+        versionName "1.0.${buildNo}"
+    }
+
+    // Fester Debug-Schlüssel im Repo, damit neue Versionen sich über alte installieren lassen.
+    // Für eine Veröffentlichung im Play Store einen eigenen, geheimen Schlüssel verwenden.
+    signingConfigs {
+        fixed {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.fixed
+        }
+        debug {
+            signingConfig signingConfigs.fixed
+        }
+    }
+
+    // Die Web-App aus /web wird direkt als App-Inhalt eingebunden
+    sourceSets {
+        main {
+            assets.srcDirs = ['../web']
+        }
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+}
