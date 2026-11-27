@@ -47,6 +47,10 @@ button,select,input{font:inherit;color:inherit}
 .swatch{border:2px solid var(--line);border-radius:12px;padding:7px;background:var(--card);cursor:pointer;text-align:left;font-size:14px;color:var(--ink)}
 .swatch.on{border-color:var(--ink)}
 .swatch i{display:block;height:28px;border-radius:7px;margin-bottom:6px}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:22px;cursor:pointer}
+.stepper input{width:64px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);text-align:center;font-size:18px;font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+.stepper input::-webkit-inner-spin-button,.stepper input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:8px}
 .seg button{flex:1;min-height:44px;border:0;background:var(--card);color:var(--ink);cursor:pointer;font-size:15px}
 .seg button+button{border-left:1px solid var(--line)}
@@ -210,6 +214,8 @@ footer a{color:inherit}
  <label class="rg"><span>Berge überhöhen<small>Nur in der Ansicht ohne Kamera</small></span><output id="exOut"></output><input type="range" id="optEx" min="1" max="4" step="0.5"></label>
  <h4>Ziele</h4>
  <label class="sw"><span>Beschriftung der Ziele<small>Im Panorama und im Kamerabild. Aus: nur Symbole – antippen zeigt die Infos</small></span><input type="checkbox" id="optCamLabels"></label>
+ <div class="rg"><span>Ziele im Kamerabild<small>Es werden die wichtigsten angezeigt (große Orte, Berge, Burgen, nahe Ziele zuerst)</small></span>
+  <div class="stepper"><button type="button" id="maxMinus" aria-label="weniger">−</button><input type="number" id="optMax" min="1" max="60" inputmode="numeric" aria-label="Anzahl Ziele im Kamerabild"><button type="button" id="maxPlus" aria-label="mehr">+</button></div></div>
  <h4>Farbschema</h4>
  <div class="swatches" id="swatches"></div>
  <h4>Hell oder dunkel</h4>
@@ -244,7 +250,7 @@ const TH=()=>THEMES[S.theme]||THEMES.wald;
 const DIRS=['N','NNO','NO','ONO','O','OSO','SO','SSO','S','SSW','SW','WSW','W','WNW','NW','NNW'];
 const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 
-let S={fov:60,rad:10,off:0,horizon:1,ridges:1,ex:2,camLabels:0,theme:'wald',mode:'auto',cats:{ort:1,berg:1,burg:1,kirche:1,leuchtturm:1,funk:1,turm:1,wind:0}};
+let S={fov:60,rad:10,off:0,horizon:1,ridges:1,maxCam:12,ex:2,camLabels:0,theme:'wald',mode:'auto',cats:{ort:1,berg:1,burg:1,kirche:1,leuchtturm:1,funk:1,turm:1,wind:0}};
 try{const s=JSON.parse(localStorage.getItem('peilung:set')||'null');if(s)S={...S,...s,cats:{...S.cats,...(s.cats||{})}}}catch(e){}
 const save=()=>{try{localStorage.setItem('peilung:set',JSON.stringify(S))}catch(e){}};
 
@@ -559,14 +565,16 @@ function drawPano(h){
  vis.sort((a,b)=>b.it.w/Math.sqrt(b.it.d/1000+.5)-a.it.w/Math.sqrt(a.it.d/1000+.5));
  let hidden=0,html='';
  if(cam||!S.camLabels){
-  const placed=[],lab=!!S.camLabels;
+  const placed=[],lab=!!S.camLabels;let nShown=0;
   for(const v of vis){
+   if(cam&&nShown>=S.maxCam){hidden++;continue}
    const it=v.it,x=W/2+v.rel*ppd,py=yOf(it),bw=lab?Math.min(200,it.name.length*7+70):40,bh=lab?26:40;let y=null;
    for(let l=0;l<7;l++){
     const yy=py-(lab?22:26)-l*(bh+4),bx=[x-bw/2,x+bw/2,yy-bh/2,yy+bh/2];
     if(placed.every(b=>bx[1]<b[0]||bx[0]>b[1]||bx[3]<b[2]||bx[2]>b[3])){y=yy;placed.push(bx);break}
    }
    if(y==null||y<-20||y>H){hidden++;continue}
+   nShown++;
    const c=CATS[it.cat],occ=it.vis===false?' occ':'',X=x.toFixed(1);
    html+=`<i class="stem" style="left:${X}px;top:${(y+bh/2).toFixed(1)}px;height:${Math.max(0,py-y-bh/2).toFixed(1)}px"></i><i class="dot" style="left:${X}px;top:${py.toFixed(1)}px"></i>`;
    html+=lab?`<button class="mk${occ}" data-i="${items.indexOf(it)}" style="left:${X}px;top:${(y-bh/2).toFixed(1)}px;--c:${c.c}"><svg><use href="#i-${it.cat}"/></svg><span class="nm">${esc(it.name)}</span><span class="ds">${fmtD(it.d)}</span></button>`
@@ -745,12 +753,16 @@ function applyTheme(){
 const setSheet=$('#setSheet');
 function syncSettings(){
  $('#optHorizon').checked=!!S.horizon;$('#optRidges').checked=!!S.ridges;$('#optCamLabels').checked=!!S.camLabels;
- $('#optRidges').disabled=!S.horizon;$('#optEx').value=S.ex;$('#exOut').textContent=nf.format(S.ex)+'×';
+ $('#optRidges').disabled=!S.horizon;$('#optMax').value=S.maxCam;$('#optEx').value=S.ex;$('#exOut').textContent=nf.format(S.ex)+'×';
  $('#swatches').innerHTML=Object.entries(THEMES).map(([k,T])=>`<button type="button" class="swatch${S.theme===k?' on':''}" data-theme="${k}" aria-pressed="${S.theme===k}"><i style="background:linear-gradient(90deg,${T.sky[0]} 0 34%,${T.prim} 34% 67%,${T.sig} 67%)"></i>${T.n}</button>`).join('');
  document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.mode===S.mode));
 }
 $('#gear').addEventListener('click',()=>{syncSettings();setSheet.hidden=false;$('#setClose').focus()});
 $('#setClose').addEventListener('click',()=>setSheet.hidden=true);
+function setMax(n){n=Math.round(+n);if(!isFinite(n))n=S.maxCam;S.maxCam=Math.max(1,Math.min(60,n));$('#optMax').value=S.maxCam;save();dirty=true}
+$('#maxMinus').addEventListener('click',()=>setMax(S.maxCam-1));
+$('#maxPlus').addEventListener('click',()=>setMax(S.maxCam+1));
+$('#optMax').addEventListener('change',e=>setMax(e.target.value));
 setSheet.addEventListener('click',e=>{
  if(e.target===setSheet){setSheet.hidden=true;return}
  const sw=e.target.closest('[data-theme]');if(sw){S.theme=sw.dataset.theme;save();applyTheme();syncSettings();return}
